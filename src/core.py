@@ -112,7 +112,7 @@ def ban(ip):
                 # if running windows then route attacker to some bs address.
                 if is_windows():
                     #lets try and write an event log
-                   # HoneyPotEvent(ip)
+                    HoneyPotEvent(ip)
                     #now lets block em or mess with em route somewhere else?
                     #subprocess.Popen("route ADD %s MASK 255.255.255.255 10.255.255.255" % (ip),
                      #stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)

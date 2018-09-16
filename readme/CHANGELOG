@@ -1,4 +1,15 @@
 ~~~~~~~~~~~~~~~~~~~~~~
+version 2.1   9/16/2018
+~~~~~~~~~~~~~~~~~~~~~~
+
+* added Windows event dll install routine events now fire cleanly(stil a WIP)
+
+
+
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~
 version 2.0
 ~~~~~~~~~~~~~~~~~~~~~~
 
