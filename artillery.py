@@ -84,6 +84,7 @@ if is_config_enabled("CONSOLE_LOGGING"):
 check_banlist_path()
 
 try:
+    
     # update artillery
     if is_config_enabled("AUTO_UPDATE"):
         thread.start_new_thread(update, ())
@@ -143,8 +144,11 @@ try:
     #        f = open('/var/run/artillery.pid', 'w')
     #        f.write(pid)
     #        f.close()
-
-
+    #
+    if is_windows():
+        from src.win_firewall import FirewallUpdateTimer, create_firewall_list
+    create_firewall_list()
+    thread.start_new_thread(FirewallUpdateTimer, ())
     # let the program to continue to run
     while 1:
         try:
