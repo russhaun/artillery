@@ -105,26 +105,21 @@ def ban(ip):
                         filewrite = open("/var/artillery/banlist.txt", "a")
                         filewrite.write(ip + "\n")
                         filewrite.close()
-
-                        
                         sort_banlist()
 
                 # if running windows then route attacker to some bs address.
                 if is_windows():
                     #lets try and write an event log
-                   # HoneyPotEvent(ip)
+                    HoneyPotEvent(ip)
                     #now lets block em or mess with em route somewhere else?
-                    #subprocess.Popen("route ADD %s MASK 255.255.255.255 10.255.255.255" % (ip),
-                     #stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                    subprocess.Popen("route ADD %s MASK 255.255.255.255 10.255.255.255" % (ip),
+                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
                     fileopen = open("C:\\Program Files (x86)\\Artillery\\banlist.txt", "r")
                     data = fileopen.read()
                     if ip not in data:
                         filewrite = open("C:\\Program Files (x86)\\Artillery\\banlist.txt", "a")
                         filewrite.write(ip + "\n")
                         filewrite.close()
-                        fileopen.close()
-                        #put this here for firewall update to pick up changes
-                        time.sleep(10)
                         sort_banlist()
 
 def update():
