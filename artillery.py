@@ -46,7 +46,7 @@ if is_windows():#this is for launching script as admin from batchfile.
         #not the best way but for now something will go into eventlog.
         #for people with subscriptions in there environment like myself.
         #will work on better way
-        from src.events import ArtilleryStartEvent
+        from src.events import ArtilleryStartEvent, ArtilleryStopEvent
         # let the local(txt))logfile know artillery has started successfully
         write_log("[*] %s: Artillery has started successfully." % (grab_time()))
         # write to windows log to let know artillery has started
@@ -150,6 +150,7 @@ try:
         try:
             time.sleep(100000)
         except KeyboardInterrupt:
+            ArtilleryStopEvent()
             print("\n[!] Exiting Artillery... hack the gibson.\n")
             sys.exit()
 
