@@ -112,8 +112,10 @@ def ban(ip):
                     #lets try and write an event log
                     HoneyPotEvent(ip)
                     #now lets block em or mess with em route somewhere else?
-                    subprocess.Popen("route ADD %s MASK 255.255.255.255 10.255.255.255" % (ip),
-                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                    #subprocess.Popen("route ADD %s MASK 255.255.255.255 10.255.255.255" % (ip),
+                    # stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                    #since were using the fire wall don't need lines above will remove later after testing
+                    #writing to below file will triger update
                     fileopen = open("C:\\Program Files (x86)\\Artillery\\banlist.txt", "r")
                     data = fileopen.read()
                     if ip not in data:

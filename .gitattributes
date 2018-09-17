@@ -7,6 +7,9 @@
 #this is for the eventual event message dll file. that is currently in progress
 *.dll binary
 
+#this is for windows registry entries
+*.reg binary
+
 
 #put this here because it will run on both platfoms. commented out for now
 #*.ps1 text

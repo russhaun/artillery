@@ -153,6 +153,9 @@ if answer.lower() in ["yes", "y"]:
         #added to start after install.launches in seperate window
         if is_windows():
             os.chdir("src\windows")
+            #register dll with system
+            os.system("start cmd /K dll_reg.bat")
+            time.sleep(1)
             #copy over banlist
             os.system("start cmd /K banlist.bat")
             #Wait to make sure banlist is copied over
