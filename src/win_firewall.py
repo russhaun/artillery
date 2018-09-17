@@ -35,7 +35,7 @@ import datetime
 import os 
 import time
 import threading
-from core import write_log
+from .core import write_log
 ############################################################################################################
 '''pre-defined variables used during script operation.'''
 def is_posix():
@@ -152,8 +152,8 @@ def firewall_update():
         #below string equates to doing this from powershell
         # powershell.exe -ExecutionPolicy Bypass Set-NetFirewallrule -DisplayName Artillery_IP_Block -Direction in -RemoteAddress <ip list> -Action block
         # unfortunatly i have to reload the whole list which will fill up logs trying to find better way
-        add_rule= powershell, executionpolicy, bypass, set_new_rule, Name, "Artillery_IP_Block", Dir, 'in', Raddr, blocked_hosts, Act, "block"
-        subprocess.Popen(add_rule)
+        add_rule= powershell, executionpolicy, bypass, set_new_rule, Name, "Artillery_IP_Block", Dir, 'in', Raddr, hosts, Act, "block"
+        #subprocess.Popen(add_rule)
         #print(add_rule)
         alert = "[*] FIREWALL: Rules updated succesfully.........."
         print(alert)
@@ -182,7 +182,7 @@ def remove_firewall_rule(ip):
 #
 def make_firewall_group():
     '''create intial blank group to use'''
-    make_group= powershell, executionpolicy, bypass, new_firewall_group, Name, "Artillery_IP_Block", Dir, 'in', Desc, "Default group used by Artillery to manage blocked hosts", Act, "block"
+    make_group= powershell, executionpolicy, bypass, new_firewall_group, Name, "Artillery_IP_Block", Dir, 'in', Desc, "none", Act, "block"
     #print(make_group)
     subprocess.Popen(make_group)
     print("[*] FIREWALL: group created sucessfully..........")
@@ -207,7 +207,7 @@ def FirewallUpdateTimer():
      and run firewall_update() function'''
     #set timer for every 5 minutes
     try:
-        interval = 300
+        interval = 30
         threading.Timer(interval,FirewallUpdateTimer).start()
         firewall_update()
     except KeyboardInterrupt:
