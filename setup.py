@@ -108,12 +108,15 @@ if answer.lower() in ["yes", "y"]:
     #Changed order of cmds. was giving error about file already exists.
     #also updated location to be the same accross all versions of Windows
     if is_windows():
+        #from src.win_firewall import make_firewall_group
         program_files = os.environ["PROGRAMFILES(X86)"]
         install_path = os.getcwd()
         shutil.copytree(install_path, program_files + "\\Artillery\\")
         os.makedirs(program_files + "\\Artillery\\logs")
         os.makedirs(program_files + "\\Artillery\\database")
         os.makedirs(program_files + "\\Artillery\\src\\program_junk")
+        #added to make firewall group
+        #make_firewall_group()
 
 
     if is_posix():
