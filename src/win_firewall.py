@@ -35,7 +35,7 @@ import datetime
 import os 
 import time
 import threading
-#from core import write_log
+from core import write_log
 ############################################################################################################
 '''pre-defined variables used during script operation.'''
 def is_posix():
@@ -58,6 +58,7 @@ def get_config(cfg):
 program_files = os.environ["PROGRAMFILES(X86)"]
 ip_file = program_files + "\\Artillery\\banlist.txt"
 blocked_hosts =[]
+firewall_hosts =[]
 last_modified_time = ''
 new_modified_time = ''
 firewall = get_config('Firewall')
@@ -82,33 +83,15 @@ def get_banlist_timestamp():
     time_stamp = datetime.datetime.fromtimestamp(os.stat(filename).st_mtime)
     global last_modified_time
     last_modified_time = time_stamp
-
-
-def write_log(alert):
-    #if is_posix():
-        #syslog(alert)
-    #changed path to be more consistant across windows versions
-    if is_windows():
-        #program_files = os.environ["PROGRAMFILES(X86)"]
-        if not os.path.isdir(program_files + "\\Artillery\\logs"):
-            os.makedirs(program_files + "\\Artillery\\logs")
-        if not os.path.isfile(program_files + "\\Artillery\\logs\\alerts.log"):
-            filewrite = open(
-                program_files + "\\Artillery\\logs\\alerts.log", "w")
-            filewrite.write("***** Artillery Alerts Log *****\n")
-            filewrite.close()
-        filewrite = open(program_files + "\\Artillery\\logs\\alerts.log", "a")
-        filewrite.write(alert + "\n")
-        filewrite.close()
-
-
+#
+#
 def create_firewall_list():
     '''create initial list 'blocked_hosts' from banlist.txt and
     set timestamp on file for use with update function '''
     #
     alert = "[*] FIREWALL: creating firewall list.........."
-    print(alert)
-    #write_log(alert) 
+    #print(alert)
+    write_log(alert) 
     with open(ip_file) as f:
         #skip header lines from banlist.txt
         for _ in range(13):
@@ -121,8 +104,8 @@ def create_firewall_list():
     #set timestamp for update function
     get_banlist_timestamp()
     alert = "[*] FIREWALL: list done.........."
-    print(alert)
-    #write_log(alert)
+    #print(alert)
+    write_log(alert)
        
 #
 def firewall_update():
@@ -137,45 +120,49 @@ def firewall_update():
     #if time stamps differ begin update
     if (new_modified_time > last_modified_time):
         alert = "[!] FIREWALL: Changes detected to banlist.txt updating rules.........."
-        print(alert)
+        #print(alert)
         write_log(alert)
         alert = "[*] FIREWALL: {} was last modified on {:%Y-%m-%d %H:%M:%S}".format(filename, last_modified_time)
-        print(alert)
+        #print(alert)
         write_log(alert)
         #set a new timestamp
         get_banlist_timestamp()
         #pull up our list
-        #hosts = blocked_hosts
+        hosts = firewall_hosts
         alert = "[*] FIREWALL: Adding rules to windows firewall..........."
-        print(alert)
-        #write_log(alert)
+        #print(alert)
+        write_log(alert)
         #below string equates to doing this from powershell
         # powershell.exe -ExecutionPolicy Bypass Set-NetFirewallrule -DisplayName Artillery_IP_Block -Direction in -RemoteAddress <ip list> -Action block
         # unfortunatly i have to reload the whole list which will fill up logs trying to find better way
-        add_rule= powershell, executionpolicy, bypass, set_new_rule, Name, "Artillery_IP_Block", Dir, 'in', Raddr, blocked_hosts, Act, "block"
-        #subprocess.Popen(add_rule)
+        add_rule= powershell, executionpolicy, bypass, set_new_rule, Name, "Artillery_IP_Block", Dir, 'in', Raddr, hosts, Act, "block"
+        subprocess.Popen(add_rule)
         #print(add_rule)
         alert = "[*] FIREWALL: Rules updated succesfully.........."
-        print(alert)
-        #write_log(alert)
+        #print(alert)
+        write_log(alert)
 #   
     else:
-        print("[*] FIREWALL: No changes detected sleeping..........")
+        alert = ("[*] FIREWALL: No changes detected sleeping.........."
+        #print("[*] FIREWALL: No changes detected sleeping..........")
+        write_log(alert)
 #
 #
 def add_firewall_rule(ip):
     '''add firewall rule to host. basically just append it to our list availible "blocked_hosts"
-    and trigger an update'''
+    and trigger an update. for now this list is limited to 1000 entries'''
     attackerip = ip
     t = datetime.datetime.now()
-    #for line in attackerip:
-    #    line = line.strip()
-    #    blocked_hosts.append(line)
+    for line in attackerip:
+        line = line.strip()
+        firewall_hosts.append(line)
     #sort hosts list
-    #blocked_hosts.sort()
+    firewall_hosts.sort()
     #print alert and then triger update
-    print('[*] FIREWALL:Successfully added {} to firewall list @ {:%Y-%m-%d %H:%M:%S} triggering update..........'.format(attackerip, t))
-    #firewall_update()
+    alert = '[*] FIREWALL:Successfully added {} to firewall list @ {:%Y-%m-%d %H:%M:%S} triggering update..........'.format(attackerip, t)
+    #print('[*] FIREWALL:Successfully added {} to firewall list @ {:%Y-%m-%d %H:%M:%S} triggering update..........'.format(attackerip, t))
+    write_log(alert)
+    firewall_update()
 #
 def remove_firewall_rule(ip):
     pass
@@ -185,13 +172,17 @@ def make_firewall_group():
     make_group= powershell, executionpolicy, bypass, new_firewall_group, Name, "Artillery_IP_Block", Dir, 'in', Desc, "Default group used by Artillery to manage blocked hosts", Act, "block"
     #print(make_group)
     subprocess.Popen(make_group)
-    print("[*] FIREWALL: group created sucessfully..........")
+    alert = "[*] FIREWALL: group created sucessfully.........."
+    write_log(alert)
+    print(alert)
 #
 def rem_firewall_group():
     '''delete group from computer'''
     del_group = powershell, executionpolicy, bypass, remove_group, Name, "Artillery_IP_Block"
     subprocess.Popen(del_group)
-    print("[*] FIREWALL: group removed sucessfully...........")
+    alert = "[*] FIREWALL: group removed sucessfully..........."
+    #print("[*] FIREWALL: group removed sucessfully...........")
+    write_log(alert)
 
 #below string equates to doing this from powershell
 #  powershell.exe -ExecutionPolicy Bypass Set-NetFirewallrule -DisplayName Artillery_IP_Block -Direction in -Description none -RemoteAddress <ip to block> -Action block
