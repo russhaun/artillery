@@ -136,7 +136,7 @@ def firewall_update():
         # powershell.exe -ExecutionPolicy Bypass Set-NetFirewallrule -DisplayName Artillery_IP_Block -Direction in -RemoteAddress <ip list> -Action block
         # unfortunatly i have to reload the whole list which will fill up logs trying to find better way
         add_rule= powershell, executionpolicy, bypass, set_new_rule, Name, "Artillery_IP_Block", Dir, 'in', Raddr, hosts, Act, "block"
-        subprocess.Popen(add_rule)
+        #subprocess.Popen(add_rule)
         #print(add_rule)
         alert = "[*] FIREWALL: Rules updated succesfully.........."
         #print(alert)
