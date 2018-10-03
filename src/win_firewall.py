@@ -41,8 +41,10 @@ from core import write_log
 def is_posix():
     return os.name == "posix"
 #
+#
 def is_windows():
     return os.name == "nt"
+#
 #
 def get_config(cfg):
     firew = ['New-NetFirewallRule ', 'Set-NetFirewallrule ', 'Remove-NetFirewallRule', '-Action ', '-DisplayName ', '-Direction ', '-Description ', '-Enabled ', '-RemoteAddress']
@@ -57,6 +59,7 @@ def get_config(cfg):
         print("Config not found")
 program_files = os.environ["PROGRAMFILES(X86)"]
 ip_file = program_files + "\\Artillery\\banlist.txt"
+sf = 'fwseed.txt'
 blocked_hosts =[]
 firewall_hosts =[]
 last_modified_time = ''
@@ -90,7 +93,6 @@ def create_firewall_list():
     set timestamp on file for use with update function '''
     #
     alert = "[*] FIREWALL: creating firewall list.........."
-    #print(alert)
     write_log(alert) 
     with open(ip_file) as f:
         #skip header lines from banlist.txt
@@ -101,55 +103,50 @@ def create_firewall_list():
             line = line.strip()
             blocked_hosts.append(line)
     f.close()
+    #create a seed for our firewall group
+    #seed = blocked_hosts[0]
+    #firewall_hosts.append(seed)
+    #print(seed)
     #set timestamp for update function
     get_banlist_timestamp()
     alert = "[*] FIREWALL: list done.........."
-    #print(alert)
     write_log(alert)
-       
+#       
 #
 def firewall_update():
     ''' poll @ intervals with a timer at bottom of script to see if any changes 
     too main blocklist. If file timestamps have changed trigger update from created list 'blocked_hosts' 
     This will cause the whole list to be processed has potential to increase log size dramatically based on list size'''
     filename = ip_file
-    #print('[*] {} was last modified on {:%Y-%m-%d %H:%M:%S}'.format(filename, last_modified_time))
     modified_time = datetime.datetime.fromtimestamp(os.stat(filename).st_mtime)
     global new_modified_time
     new_modified_time = modified_time
     #if time stamps differ begin update
     if (new_modified_time > last_modified_time):
         alert = "[!] FIREWALL: Changes detected to banlist.txt updating rules.........."
-        #print(alert)
         write_log(alert)
         alert = "[*] FIREWALL: {} was last modified on {:%Y-%m-%d %H:%M:%S}".format(filename, last_modified_time)
-        #print(alert)
         write_log(alert)
         #set a new timestamp
         get_banlist_timestamp()
         #pull up our list
         hosts = firewall_hosts
         alert = "[*] FIREWALL: Adding rules to windows firewall..........."
-        #print(alert)
         write_log(alert)
         #below string equates to doing this from powershell
         # powershell.exe -ExecutionPolicy Bypass Set-NetFirewallrule -DisplayName Artillery_IP_Block -Direction in -RemoteAddress <ip list> -Action block
         # unfortunatly i have to reload the whole list which will fill up logs trying to find better way
         add_rule= powershell, executionpolicy, bypass, set_new_rule, Name, "Artillery_IP_Block", Dir, 'in', Raddr, hosts, Act, "block"
         #subprocess.Popen(add_rule)
-        #print(add_rule)
         alert = "[*] FIREWALL: Rules updated succesfully.........."
-        #print(alert)
-        write_log(alert)
-#   
+        write_log(alert) 
     else:
-        alert = ("[*] FIREWALL: No changes detected sleeping.........."
-        #print("[*] FIREWALL: No changes detected sleeping..........")
+        alert = "[*] FIREWALL: No changes detected sleeping.........."
         write_log(alert)
 #
 #
 def add_firewall_rule(ip):
-    '''add firewall rule to host. basically just append it to our list availible "blocked_hosts"
+    '''add firewall rule to host. basically just append it to our list availible "firewall_hosts"
     and trigger an update. for now this list is limited to 1000 entries'''
     attackerip = ip
     t = datetime.datetime.now()
@@ -159,31 +156,33 @@ def add_firewall_rule(ip):
     #sort hosts list
     firewall_hosts.sort()
     #print alert and then triger update
-    alert = '[*] FIREWALL:Successfully added {} to firewall list @ {:%Y-%m-%d %H:%M:%S} triggering update..........'.format(attackerip, t)
-    #print('[*] FIREWALL:Successfully added {} to firewall list @ {:%Y-%m-%d %H:%M:%S} triggering update..........'.format(attackerip, t))
+    alert = '[*] FIREWALL: Successfully added {} to firewall list @ {:%Y-%m-%d %H:%M:%S} triggering update..........'.format(attackerip, t)
     write_log(alert)
     firewall_update()
+#
 #
 def remove_firewall_rule(ip):
     pass
 #
+#
 def make_firewall_group():
     '''create intial blank group to use'''
     make_group= powershell, executionpolicy, bypass, new_firewall_group, Name, "Artillery_IP_Block", Dir, 'in', Desc, "Default group used by Artillery to manage blocked hosts", Act, "block"
-    #print(make_group)
     subprocess.Popen(make_group)
     alert = "[*] FIREWALL: group created sucessfully.........."
     write_log(alert)
     print(alert)
+#
 #
 def rem_firewall_group():
     '''delete group from computer'''
     del_group = powershell, executionpolicy, bypass, remove_group, Name, "Artillery_IP_Block"
     subprocess.Popen(del_group)
     alert = "[*] FIREWALL: group removed sucessfully..........."
-    #print("[*] FIREWALL: group removed sucessfully...........")
     write_log(alert)
-
+    print(alert)
+#
+#
 #below string equates to doing this from powershell
 #  powershell.exe -ExecutionPolicy Bypass Set-NetFirewallrule -DisplayName Artillery_IP_Block -Direction in -Description none -RemoteAddress <ip to block> -Action block
 #print('[*] {} was last modified on {:%Y-%m-%d %H:%M:%S} updating rules.....'.format(filename, new_modified_time))
@@ -198,12 +197,14 @@ def rem_firewall_group():
 #add_firewall_rule(ip)
 #make_firewall_group()
 #rem_firewall_group()
+#
+#
 def FirewallUpdateTimer():
     '''This function is the heart of script after "create_firewall_list()" function is run. will setup a timer to constantly loop
      and run firewall_update() function'''
-    #set timer for every 5 minutes
+    #set timer for every 3 minutes
     try:
-        interval = 300
+        interval = 180
         threading.Timer(interval,FirewallUpdateTimer).start()
         firewall_update()
     except KeyboardInterrupt:
