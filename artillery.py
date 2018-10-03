@@ -134,16 +134,11 @@ try:
     # pull additional source feeds from external parties other than artillery
     # - pulls every 2 hours or ATIF threat feeds
     thread.start_new_thread(pull_source_feeds, ())
-    #removed turns out the issue was windows carriage returns in the init script i had.
-    #note to self never edit linux service files on windows.doh
-    #added to create pid file service would fail to start on kali 2017
-    #if is_posix():
-    #    if not os.path.isfile("/var/run/artillery.pid"):
-    #        pid = str(os.getpid())
-    #        f = open('/var/run/artillery.pid', 'w')
-    #        f.write(pid)
-    #        f.close()
-
+    #
+    #if is_windows():
+    #    from src.win_firewall import FirewallUpdateTimer, create_firewall_list
+    #create_firewall_list()
+    #thread.start_new_thread(FirewallUpdateTimer, ())
 
     # let the program to continue to run
     while 1:
