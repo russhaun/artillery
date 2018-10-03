@@ -59,8 +59,9 @@ def get_config(cfg):
         print("Config not found")
 program_files = os.environ["PROGRAMFILES(X86)"]
 ip_file = program_files + "\\Artillery\\banlist.txt"
-sf = 'fwseed.txt'
+seed_file = 'fwseed.txt'
 blocked_hosts =[]
+seed_temp = []
 firewall_hosts =[]
 last_modified_time = ''
 new_modified_time = ''
@@ -165,13 +166,25 @@ def remove_firewall_rule(ip):
     pass
 #
 #
+def fw_seed():
+    '''grab seed ip from fwseed.txt during setup to create initial firewall rule group.
+    if not it blocks all ips and some services might fail. ex: hyperv-mgmt. :('''
+    with open(seed_file) as s:
+        for line in s:
+            #grab all ips and create new list temporarily
+            line = line.strip()
+            seed_temp.append(line)
+    s.close()
+#
+#
 def make_firewall_group():
     '''create intial blank group to use'''
-    make_group= powershell, executionpolicy, bypass, new_firewall_group, Name, "Artillery_IP_Block", Dir, 'in', Desc, "Default group used by Artillery to manage blocked hosts", Act, "block"
+    fw_seed()
+    x = seed_temp[0]
+    make_group= powershell, executionpolicy, bypass, new_firewall_group, Name, "Artillery_IP_Block", Dir, 'in', Desc, "none", Raddr, x, Act, "block"
     subprocess.Popen(make_group)
     alert = "[*] FIREWALL: group created sucessfully.........."
     write_log(alert)
-    print(alert)
 #
 #
 def rem_firewall_group():
