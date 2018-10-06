@@ -109,18 +109,21 @@ def ban(ip):
 
                 # if running windows then route attacker to some bs address.
                 if is_windows():
+                    #add them to the firewall
+                    add_firewall_rule(ip)
+                    sort_banlist()
                     #lets try and write an event log
                     HoneyPotEvent(ip)
                     #now lets block em or mess with em route somewhere else?
-                    subprocess.Popen("route ADD %s MASK 255.255.255.255 10.255.255.255" % (ip),
-                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-                    fileopen = open("C:\\Program Files (x86)\\Artillery\\banlist.txt", "r")
-                    data = fileopen.read()
-                    if ip not in data:
-                        filewrite = open("C:\\Program Files (x86)\\Artillery\\banlist.txt", "a")
-                        filewrite.write(ip + "\n")
-                        filewrite.close()
-                        sort_banlist()
+                    #subprocess.Popen("route ADD %s MASK 255.255.255.255 10.255.255.255" % (ip),
+                    # stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                    #fileopen = open("C:\\Program Files (x86)\\Artillery\\banlist.txt", "r")
+                    #data = fileopen.read()
+                    #if ip not in data:
+                    #    filewrite = open("C:\\Program Files (x86)\\Artillery\\banlist.txt", "a")
+                    #    filewrite.write(ip + "\n")
+                    #    filewrite.close()
+                    
 
 def update():
     if is_posix():
@@ -253,10 +256,13 @@ def is_posix():
 def is_windows():
     return os.name == "nt"
 
-#moved for issue #39 BinaryDefense. changed to only import on windows but it is not defined until above
 if is_windows():
+    #import windows events
     from .events import HoneyPotEvent #check events.py for reasoning.
-
+    #import firewall functions
+    from .win_firewall import add_firewall_rule
+#
+#
 def create_iptables_subset():
     if is_posix():
         ban_check = read_config("HONEYPOT_BAN").lower()
