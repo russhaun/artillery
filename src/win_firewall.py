@@ -34,7 +34,7 @@ import os
 import time
 import threading
 import sys
-from core import write_log
+#from src.core import write_log
 ############################################################################################################
 
 def is_posix():
@@ -43,6 +43,24 @@ def is_posix():
 #
 def is_windows():
     return os.name == "nt"
+#
+#
+def write_log(alert):
+    if is_posix():
+        syslog(alert)
+    #changed path to be more consistant across windows versions
+    if is_windows():
+        program_files = os.environ["PROGRAMFILES(X86)"]
+        if not os.path.isdir(program_files + "\\Artillery\\logs"):
+            os.makedirs(program_files + "\\Artillery\\logs")
+        if not os.path.isfile(program_files + "\\Artillery\\logs\\alerts.log"):
+            filewrite = open(
+                program_files + "\\Artillery\\logs\\alerts.log", "w")
+            filewrite.write("***** Artillery Alerts Log *****\n")
+            filewrite.close()
+        filewrite = open(program_files + "\\Artillery\\logs\\alerts.log", "a")
+        filewrite.write(alert + "\n")
+        filewrite.close()
 #
 #
 def get_config(cfg):

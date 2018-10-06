@@ -110,6 +110,7 @@ def ban(ip):
                 # if running windows then route attacker to some bs address.
                 if is_windows():
                     #add them to the firewall
+                    from .win_firewall import add_firewall_rule
                     add_firewall_rule(ip)
                     sort_banlist()
                     #lets try and write an event log
@@ -260,7 +261,7 @@ if is_windows():
     #import windows events
     from .events import HoneyPotEvent #check events.py for reasoning.
     #import firewall functions
-    from .win_firewall import add_firewall_rule
+    #from .win_firewall import add_firewall_rule
 #
 #
 def create_iptables_subset():
