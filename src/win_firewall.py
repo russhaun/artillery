@@ -77,11 +77,11 @@ def get_config(cfg):
         print("Config not found")
 program_files = os.environ["PROGRAMFILES(X86)"]
 ip_file = program_files + "\\Artillery\\banlist.txt"
-seed_file = 'fwseed.txt'
+seed_file = program_files + "\\artillery\\src\\windows\\fwseed.txt"
 blocked_hosts =[]
 seed_temp = []
-#firewall_hosts = program_files + "\\Artillery\\src\\windows\\firewall_rules.txt"
-firewall_hosts = 'firewall_rules.txt'
+firewall_hosts = program_files + "\\Artillery\\src\\windows\\firewall_rules.txt"
+#firewall_hosts = 'firewall_rules.txt'
 last_modified_time = ''
 new_modified_time = ''
 firewall = get_config('Firewall')
