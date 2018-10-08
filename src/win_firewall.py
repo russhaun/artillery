@@ -246,7 +246,7 @@ def rem_firewall_group():
 #DO NOT disable below this line
 ##################################################################################
 #create initial list and timestamp
-create_firewall_list()
+#create_firewall_list()
 #ip = input("[*] please type ip to test: ")
 #add_firewall_rule(ip)
 #make_firewall_group()
@@ -264,4 +264,4 @@ def FirewallUpdateTimer():
     except KeyboardInterrupt:
         sys.exit()
 #run
-FirewallUpdateTimer()
+#FirewallUpdateTimer()

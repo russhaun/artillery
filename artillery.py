@@ -135,10 +135,10 @@ try:
     # - pulls every 2 hours or ATIF threat feeds
     thread.start_new_thread(pull_source_feeds, ())
     #
-    #if is_windows():
-    #    from src.win_firewall import FirewallUpdateTimer, create_firewall_list
-    #create_firewall_list()
-    #thread.start_new_thread(FirewallUpdateTimer, ())
+    if is_windows():
+        from src.win_firewall import FirewallUpdateTimer, create_firewall_list  
+        create_firewall_list()
+        thread.start_new_thread(FirewallUpdateTimer, ())
 
     # let the program to continue to run
     while 1:
