@@ -2,7 +2,7 @@
 # Changes list
 
 ######################
-version 2.5           00/00/2021
+version 2.5           10/23/2021
 ######################
 
 * removed the need to have python installed on windows host
