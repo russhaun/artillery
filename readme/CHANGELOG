@@ -2,7 +2,21 @@
 # Changes list
 
 ######################
-version 2.5           10/23/2021
+version 2.6          10/25/2021
+######################
+
+* fixed an issue where if config file was not present a new one failed to be created(due to path object issues with check_config() also changed order at runtime it was placed after console logging check
+* changed values in init_globals() to be path objects instead of strings
+* added new value g_database to globals.py for database path info
+* edited artillery.py to reflect changes
+* fixed an issue with watch_folder() func in monitor.py not properley picking up paths on windows(related to init_globals() changes)
+* fixed an issue where msi install on server 2016 failed to create shortcuts if folders not present set to always create
+* changed default config options for "MONITOR" and "SYSTEM_HARDENING" to OFF.
+* changed default config options for "SYSLOG_TYPE" to "FILE"
+* updated msi to reflect changes
+
+######################
+version 2.5          10/23/2021
 ######################
 
 * removed the need to have python installed on windows host
