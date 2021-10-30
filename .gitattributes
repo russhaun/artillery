@@ -8,8 +8,7 @@
 *.dll binary
 *.exe binary
 *.reg binary
-#don't know if needed just to make sure
-*.msi binary
+*.zip binary
 
 
 #put this here because it will run on both platfoms. commented out for now
