@@ -82,8 +82,7 @@ MSI method:(preferred)
   Also:
     version of pywin32 is capped(for now @ 228) use binary installer from here. https://github.com/mhammond/pywin32/releases/tag/b228 . due to issues with parts of project breaking if upgraded. has to do with py 2.7 code still present. working on new branch now. install appropriate version for your platform ex: 32/64 bit
 
-  navigate to windows folder of extacted files. copy source.zip to a location of your choice.
-  extract files. once extracted you will see a file called 'artillery.spec' from a cmdline execute "pyinstaller artillery.spec" (without quotes) when complete files will be located in "finalbuild" folder, this folder is created during build. 
+  navigate to windows folder of extacted repo. you will see a folder called "source" copy this folder to a place of your choosing rename if you wish.open a cmd prompt in this new location  and execute "pyinstaller artillery.spec" (without quotes)  when complete files will be located in "finalbuild" folder, this folder is created during build.this includes any src code as well. this project self replicates src\compiled binaries to finalbuild folder will improve as time goes on.
   
   msi is not in this package so u will have to manually copy files and register dll (working on setup.exe) for now it's a 2 step process
 
