@@ -73,7 +73,7 @@ MSI method:(preferred)
     - win10toast
     - pywin32 v228
     - pyinstaller 4.5.1
-    - python 3.6
+    - python 3.6(visual studio install)
     - win10 sdk
 
   Note:
