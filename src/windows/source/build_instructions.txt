@@ -1,0 +1,18 @@
+###### Building project 
+#requirements:
+- PyQT5
+- win10toast
+- pywin32 v228
+- pyinstaller 4.5.1
+- python 3.6
+- win10 sdk
+
+  Note:
+    the library win10toast is a custom one and different from the one on pip.please use this repo to install. https://github.com/russhaun/Windows-10-Toast-Notifications .This repo adds callbacks to class.
+
+  Also:
+    version of pywin32 is capped(for now @ 228) use binary installer from here. https://github.com/mhammond/pywin32/releases/tag/b228 . due to issues with parts of project breaking if upgraded. has to do with py 2.7 code still present. working on new branch now. install appropriate version for your platform ex: 32/64 bit
+
+  navigate to windows folder of extacted files. copy source.zip to a location of your choice, extract files. once extracted you will see a file called 'artilleryUI.spec' from a cmdline execute "pyinstaller artilleryUI.spec" (without quotes) when complete files will be located in "finalbuild" folder, this folder is created during build. 
+  
+  msi source is not in this package so u will have to manually copy files and register dll (working on setup.exe) for now it's a 2 step process :(
