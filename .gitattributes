@@ -9,6 +9,11 @@
 *.exe binary
 *.reg binary
 *.msi binary
+
+#for all the icons in project
+*.png binary
+*.ico binary
+*.jpg binary
 #put this here because it will run on both platfoms. commented out for now
 #*.ps1 text
 #*.psm1 text
