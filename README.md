@@ -32,7 +32,7 @@ This is a port of (original repo) to run without python needing to be installed 
 - ```/readme```   - changelog and license files
 - ```/database``` - holds database for file monitoring
 - ```src/windows``` - holds main windows files
-- ```src/windows/source.zip``` - current release sourcecode
+- ```src/windows/source``` - current release sourcecode
 - ```src/icons``` - holds icons for project
 - ```artillery.msi``` - msi installer of current repo for windows systems
 
