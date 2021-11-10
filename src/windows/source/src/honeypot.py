@@ -93,7 +93,8 @@ class SocketListener((SocketServer.BaseRequestHandler)):
                             alert = message % (now, ip)
                         elif nrvars == 3:
                             alert = message % (now, ip, str(port))
-
+                    #enabled = read_config("EMAIL_ALERTS")
+                    #if enabled == "ON":
                     warn_the_good_guys(subject, alert)
 
                     # close the socket

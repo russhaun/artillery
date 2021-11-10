@@ -2,6 +2,31 @@
 # Changes list
 
 ######################
+version 2.7          11/09/21
+######################
+
+* removed source.zip from main repo. and added raw folder so as everyone can see actual changes through git properly. source.zip is still included with msi installer 
+* fixed dll event viewer was chrashing when trying to view events
+* disabled "advertised" shortcuts in msi installer
+* added files for autologin was failing on windows 10
+* fixed typo in configdefaults of check_config() entry "RECYCLE_IPS" changed txt to read "RECYCLE banlist.txt AFTER A CERTAIN AMOUNT OF TIME". instead of "RECYCLE LOGS AFTER A CERTAIN AMOUNT OF TIME". since the function rewrites banlist
+* moved artillerystart() event to end of artillery.py removed redundant writelog entry at start as well. reordered write_console() msg's to more accurately reflect what is happening in proper order.
+* updated build instructions file and readme
+* fixed an issue with msi being corrupted when downloading zip from githubpage
+added *.msi binary to gitattributes file
+* set some sane windows defaults in core.py when generating config file
+* fixed an issue with server standard 16 failing service checks if llmnr key was not found
+* updated events.py. made ToastMessages only initialize once for issue#45
+* added values to main toast class for issue#45
+* fixed an issue with insecureservice checks not delting files @ runtime
+* commented out  updatewindows(). in core.py. rebuilding routine into exe changing method
+* updated Win10Toast Repo on github to reflect changes for issue#45
+* updated get_os() in win_func.py for server 2016 standard
+* added server 2016 essentials to os list
+* added function to grab artillery build # info to artillery.py and display on run
+* changed artillery ver to match release #
+
+######################
 version 2.6          10/25/2021
 ######################
 

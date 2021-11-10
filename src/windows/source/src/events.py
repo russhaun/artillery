@@ -89,18 +89,17 @@ class ToastMessages(ToastNotifier):
             #else fall back and use default of class
             new_icon = None
         return new_icon
-
-    #
+#set up Toast class
+toast = ToastMessages()
 #below are as defined in the "dll" look @ included .mc file for message contents
 #descr = 'ARTILLERY_START'
 def ArtilleryStartEvent():
-        start_toast = ToastMessages()
-        start_toast.show_toast("Artillery - Advanced Threat Detection",
-                   "Artillery has been started",
+        toast.show_toast(title="Artillery - Advanced Threat Detection",
+                   msg="Artillery has been started",
                    icon_path= None,
                    duration=2,
                    threaded=False,
-                   callback_on_click=start_toast.on_event()
+                   callback_on_click=toast.on_event()
                    )
         eventID = 100
         ReportEvent(AppName, eventID, eventCategory=int(category), eventType=info, data=data, sid=my_sid)
@@ -112,13 +111,12 @@ def ArtilleryStopEvent():
 #
 #descr = 'HONEYPOT_ATTACK'
 def HoneyPotEvent(ip):
-        honeypot_toast = ToastMessages()
-        honeypot_toast.show_toast("Artillery",
-                   "I've detected an atack from "+str(ip)+"\n""an event was sent to the eventlog",
+        toast.show_toast(title="Artillery",
+                   msg="I've detected an atack from "+str(ip)+"\n""an event was sent to the eventlog",
                    icon_path=None,
                    duration=2,
-                   threaded=False,
-                   callback_on_click= honeypot_toast.on_event()
+                   threaded=True,
+                   callback_on_click=None
                    )
         ipparts = ip.split(".")
         c_ip = "%s.%s.%s.%s" % (ipparts[0], ipparts[1], ipparts[2], ipparts[3])

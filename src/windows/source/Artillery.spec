@@ -31,28 +31,30 @@ def write_changelog():
         return
     else:
         return
-#    
+# 
+TIMENOW =get_time()
+print("[*] Build started @ "+ TIMENOW)   
 print("[*] Done with imports.....")
 print("#########################################################################################")
 print("[*] Setting up variables.....")
 block_cipher = None
 HOME = os.getcwd()
 FINALBUILD = HOME+"\\finalbuild"
-HOOKSPATH = HOME+'\\finalbuild\\source\\hooks'
-SOURCECODE = HOME+'\\finalbuild\\source'
-SOURCEREADME = HOME+'\\finalbuild\\source\\readme'
-SOURCEDIST = HOME+'\\finalbuild\\source\\dist'
-SOURCELOGS = HOME+'\\finalbuild\\source\\logs'
-SOURCEDATABASE = HOME+"\\finalbuild\\source\\database"
-SOURCECODESRC = HOME+'\\finalbuild\\source\\src'
-ICONSRCDIR = HOME+'\\finalbuild\\source\\src\\icons'
-WINSRCDIR = HOME+'\\finalbuild\\source\\src\\windows'
 CLIENTFINAL = HOME+'\\finalbuild\\Artillery'
-CLIENTICONS = HOME+'\\finalbuild\\Artillery\\src\\icons'
-CLIENTWIN = HOME+ '\\finalbuild\\Artillery\\src\\windows'
-CLIENTDATABASE = HOME+'\\finalbuild\\Artillery\\database'
-CLIENTLOGS = HOME+'\\finalbuild\\Artillery\\logs'
-CLIENTREADME = HOME+'\\finalbuild\\Artillery\\readme'
+CLIENTICONS = CLIENTFINAL+'\\src\\icons'
+CLIENTWIN = CLIENTFINAL+'\\src\\windows'
+CLIENTDATABASE = CLIENTFINAL+'\\database'
+CLIENTLOGS = CLIENTFINAL+'\\logs'
+CLIENTREADME = CLIENTFINAL+'\\readme'
+SOURCECODE = CLIENTWIN+'\\source'
+HOOKSPATH = SOURCECODE+'\\hooks'
+SOURCEREADME = SOURCECODE+'\\readme'
+SOURCEDIST = SOURCECODE+'\\dist'
+SOURCELOGS = SOURCECODE+'\\logs'
+SOURCEDATABASE = SOURCECODE+'\\database'
+SOURCECODESRC = SOURCECODE+'\\src'
+ICONSRCDIR = SOURCECODESRC+'\\icons'
+WINSRCDIR = SOURCECODESRC+'\\windows'
 CLIENTSOURCE = ['Artillery.py','remove_ban.py','restart_server.py']
 ICONSOURCE = ['avatar.jpg','window_icon.png', 'bd_icon_OiD_icon.ico','toast_events_icon.ico']
 HOOKFILE = HOME+'\\hooks\\hook-win10toast.py'
@@ -60,6 +62,7 @@ READMEFILE = 'README.md'
 SPECFILE = 'Artillery.spec'
 BUILDUI = False
 BUILDFILE = 'build_instructions.txt'
+AUTOSTARTFILE = 'login.bat'
 ARTILLERY_EXE = 'Artillery.exe'
 CLIENT_FILES = ['Artillery.exe', 'Restart.exe', 'Unban.exe']
 #create all final folders if not present####################################################
@@ -74,9 +77,9 @@ else:
     os.makedirs(SOURCELOGS)
     os.makedirs(WINSRCDIR)
     os.makedirs(ICONSRCDIR)
-    os.makedirs(CLIENTFINAL)
+    #os.makedirs(CLIENTFINAL)
     os.makedirs(CLIENTICONS)
-    os.makedirs(CLIENTWIN)
+    #os.makedirs(CLIENTWIN)
     os.makedirs(CLIENTDATABASE)
     os.makedirs(CLIENTLOGS)
     os.makedirs(CLIENTREADME)
@@ -92,7 +95,7 @@ def create_source_zip():
     print("[*] making source.zip.....")
     try:
         if os.path.exists(SOURCECODE):
-            os.chdir('finalbuild')
+            os.chdir(CLIENTWIN)
             subprocess.run(['python', '-m','zipfile', '-c', 'source.zip', SOURCECODE])
             time.sleep(2)
             subprocess.run(['cmd', '/C', 'copy', 'source.zip', CLIENTWIN],stdout=subprocess.DEVNULL)
@@ -116,7 +119,12 @@ def write_source_code():
     if os.path.isfile('build_instructions.txt'):
         print("[*] Copying build instructions file.....")
         subprocess.run(['cmd', '/C', 'copy', BUILDFILE, SOURCECODE],stdout=subprocess.DEVNULL)
-        print("[*] Done.....") 
+        print("[*] Done.....")
+    if os.path.isfile('login.bat'):
+        print("[*] Copying run on login file.....")
+        subprocess.run(['cmd', '/C', 'copy', AUTOSTARTFILE, CLIENTFINAL],stdout=subprocess.DEVNULL)
+        subprocess.run(['cmd', '/C', 'copy', AUTOSTARTFILE, SOURCECODE],stdout=subprocess.DEVNULL)
+        print("[*] Done.....")  
     if os.path.isfile('Artillery.spec'):
         print("[*] Copying spec file.....")
         subprocess.run(['cmd', '/C', 'copy', SPECFILE, SOURCECODE],stdout=subprocess.DEVNULL)
@@ -157,15 +165,17 @@ def write_source_code():
     os.chdir(HOME)
     if os.path.isfile('src\\windows\\ArtilleryEvents.dll'):
         print("[*] copying windows files.....")
-        winfiles = get_filenames('\\src\\windows')
         os.chdir('src\windows')
-        for item in winfiles:
-            subprocess.run(['cmd', '/C', 'copy', item, WINSRCDIR],stdout=subprocess.DEVNULL)
         #this adds files to finalbuild\artillery\src\windows folder
         subprocess.run(['cmd', '/C', 'copy', 'ArtilleryEvents.dll', CLIENTWIN],stdout=subprocess.DEVNULL)
         subprocess.run(['cmd', '/C', 'copy', 'WindowsTODO.txt', CLIENTWIN],stdout=subprocess.DEVNULL)
         subprocess.run(['cmd', '/C', 'copy', 'ArtilleryEvents.reg', CLIENTWIN],stdout=subprocess.DEVNULL)
         subprocess.run(['cmd', '/C', 'copy', 'dll_reg.bat', CLIENTWIN],stdout=subprocess.DEVNULL)
+        #and also to project source dir
+        subprocess.run(['cmd', '/C', 'copy', 'ArtilleryEvents.dll', WINSRCDIR],stdout=subprocess.DEVNULL)
+        subprocess.run(['cmd', '/C', 'copy', 'WindowsTODO.txt', WINSRCDIR],stdout=subprocess.DEVNULL)
+        subprocess.run(['cmd', '/C', 'copy', 'ArtilleryEvents.reg', WINSRCDIR],stdout=subprocess.DEVNULL)
+        subprocess.run(['cmd', '/C', 'copy', 'dll_reg.bat', WINSRCDIR],stdout=subprocess.DEVNULL)
         print("[*] Done.....")   
     os.chdir(HOME)
     if os.path.isfile(HOOKFILE):
@@ -341,18 +351,14 @@ remove_exe = EXE(remove_pyz,
           runtime_tmpdir=None,
           console=True )
 print("[*] Done building UnBan.exe")
-print("########################################################################################")
-TIMENOW = get_time()
-print("[*] "+TIMENOW)
-time.sleep(2)
 print("###############################################################")
 print("[*] Grabbing source files.....")
 write_changelog()
 write_source_code()
-print("################################################################")
 print("[*] Source files copied.....")
+print("################################################################")
 os.chdir(HOME)
 create_source_zip()
-print("[*] Project Build finished.....")
 TIMENOW = get_time()
-print("[*] "+TIMENOW)
+#print("[*] "+TIMENOW)
+print("[*] Project Build finished @ "+ TIMENOW)
