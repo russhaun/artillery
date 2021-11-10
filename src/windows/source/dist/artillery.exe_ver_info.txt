@@ -36,7 +36,7 @@ VSVersionInfo(
         StringStruct(u'LegalCopyright', u'© Binary Defense All rights reserved.'),
         StringStruct(u'OriginalFilename', u'Artillery.exe'),
         StringStruct(u'ProductName', u'Artillery - Advanced Threat Detection'),
-        StringStruct(u'ProductVersion', u'2.1.5')])
+        StringStruct(u'ProductVersion', u'2.7')])
       ]), 
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
   ]

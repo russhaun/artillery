@@ -23,7 +23,7 @@ from src.pyuac import isUserAdmin, runAsAdmin
 #import src.globals
 #from src.core import init_globals,check_config, write_console, write_log, is_posix,is_windows,check_banlist_path,is_config_enabled,update,create_iptables_subset, update, threat_server,refresh_log,pull_source_feeds
 from src.core import *
-from src.win_func import get_update_info, get_pid, get_title
+from src.win_func import get_update_info, get_pid, get_title, get_os, current_version
 
 
 init_globals()
@@ -31,21 +31,20 @@ init_globals()
 if is_windows():#this is for launching script as admin from batchfile.
     if not isUserAdmin():# will prompt for user\pass and open in seperate window when you double click batchfile
         get_update_info()
-        PROCID = get_pid()
         runAsAdmin(cmdLine=None, wait=False)
         sys.exit(1)
     if isUserAdmin():
+        write_console("Artillery is running from '%s'" % globals.g_apppath)
         check_config()
         title = get_title()
+        ver = current_version()
+        write_console(ver)
+        os_result = get_os()
         PROCID = get_pid()
         write_console(PROCID)
         from src.events import ArtilleryStartEvent
-        # let the local(txt))logfile know artillery has started successfully
-        write_log("Artillery has started successfully.")
-        # write to windows log to let know artillery has started
-        ArtilleryStartEvent()
         #create temp datebase and continue
-    if not os.path.isfile(globals.g_database):
+    if not os.path.isfile(str(globals.g_database)):
         filewrite = open(globals.g_database , "w")
         filewrite.write("")
         filewrite.close()
@@ -70,8 +69,7 @@ if is_posix():
             filewrite.close()
 
 
-write_console("Artillery has started \nIf on Windows Ctrl+C to exit. \nConsole logging enabled.\n")
-write_console("Artillery is running from '%s'" % globals.g_apppath)
+
 
 # prep everything for artillery first run
 check_banlist_path()
@@ -136,12 +134,15 @@ try:
         thread.start_new_thread(refresh_log, ())
 
     # pull additional source feeds from external parties other than artillery
-    # - pulls every 2 hours or ATIF threat feeds
     write_console("Launching thread to get source feeds, if needed.")
     thread.start_new_thread(pull_source_feeds, ())
     # let the program to continue to run
     write_console("All set.")
+    write_console("Artillery has started \nIf on Windows Ctrl+C to exit. \nConsole logging enabled.")
     write_log("Artillery is up and running")
+    # write to windows log to let know artillery has started
+    if is_windows():
+        ArtilleryStartEvent()
     while 1:
         try:
             time.sleep(100000)

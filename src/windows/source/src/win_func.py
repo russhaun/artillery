@@ -26,6 +26,8 @@ import subprocess
 import re
 import os
 import sys
+#import os,sys 
+#sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import threading
 import datetime
 import time
@@ -67,12 +69,12 @@ if is_posix():
 def get_config(cfg):
     '''get various pre-set config options used throughout script'''
     #Current artillery version
-    current = ['2.5.5']
+    current = ['2.7']
     #Known Os versions
     oslst = ['Windows 7 Pro', 'Windows Server 2008 R2 Standard', 'Windows 8.1 Pro', 'Windows 10 Pro', 'Windows Small Business Server 2011 Essentials',
-             'Windows Server 2012 R2 Essentials', 'Hyper-V Server 2012 R2']
+             'Windows Server 2012 R2 Essentials', 'Hyper-V Server 2012 R2','Windows Server 2016 Standard', 'Windows Server 2016 Essentials']
     #Known Build numbers
-    builds = ['7601', '9600', '1709', '17134', '18362', '19041', '19042','19043']
+    builds = ['7601', '9600', '1709', '17134', '18362', '19041', '19042','19043','14393']
     regkeys = [r'SOFTWARE\Microsoft\Windows NT\CurrentVersion', r'SYSTEM\CurrentControlSet\Services\LanmanServer', r'SYSTEM\CurrentControlSet\Services\LanmanWorkstation',
                r'SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc', r'SOFTWARE\Policies\Microsoft\Windows NT\DNSClient']
     #switches for New-NetFirewallRule & Set-NetFirewallRule & Remove-NetFirewallRule functions in powershellused to initially create group and then add to it/remove from
@@ -284,8 +286,8 @@ def get_os():
     if is_posix:
         pass
     if is_windows:
-        OsName = ""
-        OsBuild = ""
+        OsName = "Unknown version"
+        OsBuild = "Unknown build"
         #reg key list
         reg = get_config('Reg')
         #known os list
@@ -324,18 +326,20 @@ def get_os():
             #sort clientconfig list to have items in same spot accross platforms
             ccfg.sort(reverse=True)
             osresults = ccfg[0]
+            #print("[*] OS results: "+ osresults)
             buildresults = ccfg[2]
+            #print("[*] Build results: "+buildresults)
             for name in kvl:
                 if name in osresults:
                     OsName = name
             for build in b1:
                 if build in buildresults:
                     OsBuild = build
-                else:
-                    OsBuild = "Unknown"
+            #print(OsName+OsBuild)
             #when were done comparing print what was found
             #if there is no match nothing is returned
-            return "[*] Detected OS: " + OsName+", ","Build: " + OsBuild
+            write_console("[*] Detected OS: " + OsName+ " Build: " + OsBuild)
+    
 #
 def get_win_config(param):
     '''Returns values from window registry related to settings for artillery'''
@@ -448,14 +452,21 @@ def insecure_service_check():
             else:
                 WpadEnabled()
                 write_console("[*] Service Check: WPAD overide key is not present. you will be vuln to MITM attacks")
-                write_log("[*]Service Check: WPAD overide key is not present. you will be vuln to MITM attacks")
+                write_log("[*] Service Check: WPAD overide key is not present. you will be vuln to MITM attacks")
         wpaddata.close()
         #
         #check for LLMNR
         try:
             llmnrctr = 0
             llmnrkey = r'SOFTWARE\Policies\Microsoft\Windows NT\DNSClient'
-            llmnrkeyvalue = OpenKey(HKEY_LOCAL_MACHINE, llmnrkey)
+            #added for cases where key is not present
+            try:
+                llmnrkeyvalue = OpenKey(HKEY_LOCAL_MACHINE, llmnrkey)
+            except FileNotFoundError:
+                write_console("[*] Service Check: LLMNR key is not present skipping")
+                write_log("[*] Service Check: LLMNR key is not present skipping")
+                return
+            #if we main find key iterate through dumping all values
             while True:
                 llmnrsubkey = EnumValue(llmnrkeyvalue, llmnrctr)
                 llmnrcheck = open('llmnr_check.txt', 'a')
@@ -479,11 +490,12 @@ def insecure_service_check():
         #remove files that were created to make sure we get consistant results
         #if we don't it will forever append the file and make it bigger.
         #to see what i dump comment these lines to keep files
-        if os.path.isfile('smbcli_check.txt'):
-            subprocess.call(['cmd', '/C', 'del', 'smbcli_check.txt'], shell=True)
-            subprocess.call(['cmd', '/C', 'del', 'smbsrv_check.txt'], shell=True)
-            subprocess.call(['cmd', '/C', 'del', 'llmnr_check.txt'], shell=True)
-            subprocess.call(['cmd', '/C', 'del', 'wpad_check.txt'], shell=True)
+        path = str(globals.g_apppath)
+        if os.path.isfile(path+"\\smbcli_check.txt"):
+            subprocess.call(['cmd', '/C', 'del', path+"\\smbcli_check.txt"], shell=True)
+            subprocess.call(['cmd', '/C', 'del', path+"\\smbsrv_check.txt"], shell=True)
+            subprocess.call(['cmd', '/C', 'del', path+"\\llmnr_check.txt"], shell=True)
+            subprocess.call(['cmd', '/C', 'del', path+"\\wpad_check.txt"], shell=True)
 #
 def watch_directory_for_changes(Fpath,k=None):
     '''this will monitor a folder path of your choosing and notify on

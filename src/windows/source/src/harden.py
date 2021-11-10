@@ -6,7 +6,6 @@ import re
 import os
 from .core import *
 
-#from src.core import *
 
 # flag warnings, base is nothing
 warning = ""
