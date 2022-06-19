@@ -19,7 +19,7 @@
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
 #
-# File contains functions for use in Artillery from BinaryDefense specific to windows
+# File contains functions for use in Artillery from BinaryDefense specific to windows.
 
 from re import U
 import subprocess
@@ -69,12 +69,12 @@ if is_posix():
 def get_config(cfg):
     '''get various pre-set config options used throughout script'''
     #Current artillery version
-    current = ['2.7']
+    current = ['2.8']
     #Known Os versions
     oslst = ['Windows 7 Pro', 'Windows Server 2008 R2 Standard', 'Windows 8.1 Pro', 'Windows 10 Pro', 'Windows Small Business Server 2011 Essentials',
              'Windows Server 2012 R2 Essentials', 'Hyper-V Server 2012 R2','Windows Server 2016 Standard', 'Windows Server 2016 Essentials']
     #Known Build numbers
-    builds = ['7601', '9600', '1709', '17134', '18362', '19041', '19042','19043','14393']
+    builds = ['7601', '9600', '1709', '17134', '18362', '19041', '19042','19043','14393','19044']
     regkeys = [r'SOFTWARE\Microsoft\Windows NT\CurrentVersion', r'SYSTEM\CurrentControlSet\Services\LanmanServer', r'SYSTEM\CurrentControlSet\Services\LanmanWorkstation',
                r'SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc', r'SOFTWARE\Policies\Microsoft\Windows NT\DNSClient']
     #switches for New-NetFirewallRule & Set-NetFirewallRule & Remove-NetFirewallRule functions in powershellused to initially create group and then add to it/remove from
@@ -104,11 +104,12 @@ def get_config(cfg):
         return path_vars
     else:
         pass
-def get_title():
-    name = SetConsoleTitle('Artillery - Advanced Threat Detection')
-    return name
-#get pid of current process to use in restart routine
-def get_pid():
+def get_title() -> None:
+    '''sets title of window on windows systems using pywin32.winapi'''
+    SetConsoleTitle('Artillery - Advanced Threat Detection')
+    return
+#
+def get_pid() -> None:
     '''grabs current processid using GetCurrentProcessId() from pywin32.winapi and saves to txt file. for future use with "restart_server" script'''
     id = GetCurrentProcessId()
     s_id = str(id)
@@ -116,25 +117,27 @@ def get_pid():
     with open(pid_txt, 'w') as cpid:
         cpid.write(s_id + "\n")
         cpid.close()
-    return "[*] Current ProcessId: " + s_id
+    write_console(f"[*] Current ProcessId: {s_id}")
+    return
 #Artillery version info
 ####################################################################################
-def current_version():
+def current_version() -> None:
     '''returns current windows release of artillery'''
     get_ver = get_config('CurrentBuild')
     ver = get_ver[0]
     s_ver =str(ver)
-    info = "[*] Artillery Build: " + ver
+    info = f"[*] Artillery Build: {s_ver}"
     write_log(info)
-    return info
+    write_console(info)
+    return
 
 
 #OS functions
 ####################################################################################
 #
 def get_path_info():
-    '''grabs current host path info and returns needed values for functions in script
-    currently returns windows drive, systemdrive ,programfiles(x86) , architecture, computername'''
+    '''grabs current host path info and returns needed values for functions in script with the help of a provided list
+     of items to look for. currently returns windows drive, systemdrive ,programfiles(x86) , architecture, computername'''
     pathcfg = []
     lines = []
     keywords = get_config('Path')
@@ -177,12 +180,12 @@ def get_path_info():
     return(sysdrive,windrive,programfiles,arch,compname)
 #
 #
-def freeze_check():
+def freeze_check() -> str:
     '''check to see if we are runnning in a frozen executable or from the .py file. ex. pyinstaller'''
-    frozen = 'not'
+    frozen = 'not running'
+    # if we are running in a bundle
     if getattr(sys, 'frozen', False):
-        # if we are running in a bundle
-        frozen = 'ever so'
+        frozen = 'running'
         bundle_dir = sys._MEIPASS
         temp = 'cold'
     else:
@@ -190,9 +193,15 @@ def freeze_check():
         bundle_dir = os.path.dirname(os.path.abspath(__file__))
         temp = 'hot'
     if temp == 'cold':
-        print( '[*] Freeze Check: we are',frozen,'frozen')
+        exe_path = os.path.dirname(sys.executable)
+        mei_path = bundle_dir
+        #write_console(f"[*] Freeze Check: we are {frozen} frozen.")
+        write_log(f"[*] Freeze Check: we are {frozen} frozen.")
+        #write_log(f"exe path: {exe_path}")
+        #write_log(f"sys._MEIPASS: {mei_path}")
+        return str(exe_path)
     else:
-        print( '[*] Freeze Check: we are',frozen,'frozen')
+        write_log(f"[*] Freeze Check: we are {frozen} frozen.")
 
 
 #
@@ -208,10 +217,11 @@ def get_update_info():
     if not os.path.isdir(update_path):
         os.makedirs(update_path)
     if not os.path.isfile(settings):
-        print("[*] No settings file found.....")
-        with open(settings, 'w') as settingsfile:
-            settingsfile.write(update_path)
-        settingsfile.close()
+        #print("[*] No settings file found.....")
+        os.makedirs(tmp)
+    with open(settings, 'w') as settingsfile:
+        settingsfile.write(update_path)
+    settingsfile.close()
 #
 def update_windows():
     '''Update routine for Artillery on windows systems. Uses Requests along with Zipfile
@@ -335,27 +345,49 @@ def get_os():
             for build in b1:
                 if build in buildresults:
                     OsBuild = build
-            #print(OsName+OsBuild)
             #when were done comparing print what was found
-            #if there is no match nothing is returned
             write_console("[*] Detected OS: " + OsName+ " Build: " + OsBuild)
+
     
 #
 def get_win_config(param):
-    '''Returns values from window registry related to settings for artillery'''
+    '''Returns a value from windows registry related to settings for artillery.'''
+    ccfg = []
+    results = []
     try:
-        oskey = r'SOTFWARE\Artillery\Settings'
+        oskey = r'SOFTWARE\Artillery\Settings'
         oskeyctr = 0
         oskeyval = OpenKey(HKEY_LOCAL_MACHINE, oskey)
         while True:
             ossubkey = EnumValue(oskeyval, oskeyctr)
-                #dumps all results to txt file to parse for needed strings below
-            osresults = open("win_artillery.txt", "a")
-            osresults.write(str(ossubkey)+'\n')
+            #appends all items to new list to find our option
+            results.append(ossubkey)
             oskeyctr += 1
         #catch the error when it hits end of the key
     except WindowsError:
-        osresults.close()
+        #look @ our results and return option
+        data = results
+        #print("[*] current param: "+ str(param))
+        keywords = [param]
+        exp = re.compile("|".join(keywords), re.I)
+        for item in data:
+            if re.findall(exp, str(item)):
+                #print("found item: "+str(item))
+                ccfg.append(item)      
+    #clear the results list
+    results.clear()
+    #setup our tuple to query
+    try:
+        value = ccfg[0]
+    except IndexError as e:
+        print("failed @ "+str(keywords))
+    #grab the actual value
+    setting =value[1]
+    #remove any qoutes
+    clean = setting.replace('"', "")
+    #return string value found
+    return clean
+        #osresults.close()
 #service functions
 ####################################################################################
 def insecure_service_check():

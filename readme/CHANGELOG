@@ -2,6 +2,34 @@
 # Changes list
 
 ######################
+version 2.8          6/19/22
+######################
+
+* applied another fix for issue#45
+* updated exe ver_info files to 2.8
+* fixed an issue in msi installer where icon was not being displayed on autostart.lnk properly
+* disabled update func as it used raw files. reworking for msi method. related to issue#47
+* fixed issue#42 changed time in threat update to 24hrs instead of 2hrs. change to config file value?
+* Fixed issue with config file stating "ROOT_LOGIN" was related to web server which is not correct.
+  It refers to SSH config checks.
+* updated doc strings for most functions in core.py
+* changed func in honeypot.py in udp/tcp servers on bind call error to use warn_the_good_guys() func
+  instead of send_mail() as using this avoids checks to see if service should be used.
+* Added new UDP server and port classes in honeypot.py issue#48.
+* updated doc strings/code for udp socket in honeypot.py. To better convey flow.
+* fixed some py2 code after switching out artillery.py changed exception at bottom of script to fstring
+* removed uneeded config check call in anti_dos.py. check is in artillery.py
+* changed values in apache_monitor to read config values from config file instead of being hardcoded in script
+* fixed invalid url in pull_source_feeds. added 2 new ones from blocklist.de.
+  One for SSH and the other for Apache issue#43
+* removed uneeded check in pull_source_feeds for checking if threat_feed was enabled.
+  they both append to same list that gets returned based on being enabled or not
+* pull_source_feeds now properly pulls all lists filters and applies to banlist
+* modified format_ips to work with new method in pull_source_feeds
+* updated some write_console msg's to be f-strings in honeypot.py
+* removed uneeded check in artillery.py for temp.database. File is always availible on windows.
+
+######################
 version 2.7          11/09/21
 ######################
 
