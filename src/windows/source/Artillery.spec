@@ -15,7 +15,8 @@ def get_time():
     return(ascii)
 #
 CHANGELOG = 'changelog.txt'
-def write_changelog():
+def write_changelog(time=False):
+    TIMENOW = get_time()
     '''creates changelog or appends to existing any changes
     you wish to include. useful to keeptrack of small incremental
     changes and specifics that can be included in main changelog'''
@@ -23,8 +24,13 @@ def write_changelog():
     if (answer.lower() in ["yes", "y"]):
         line = input("[*] please give a brief description of changes: ")
         with open(CHANGELOG, 'a') as changes:
-            line = line.strip()
-            changes.write("* "+line+"\n")
+            if time:
+                line = line.strip()
+                changes.write(f"{TIMENOW}")
+                changes.write(f"{line}")
+            else:
+                line = line.strip()
+                changes.write("* "+line+"\n")
         return
     elif (answer.lower() in ["no", "n"]):
         print("[*] Not including changes")
@@ -353,7 +359,7 @@ remove_exe = EXE(remove_pyz,
 print("[*] Done building UnBan.exe")
 print("###############################################################")
 print("[*] Grabbing source files.....")
-write_changelog()
+write_changelog(time=False)
 write_source_code()
 print("[*] Source files copied.....")
 print("################################################################")

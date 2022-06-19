@@ -43,20 +43,53 @@ class TCPServer((SocketServer.ThreadingTCPServer)):
 
 class UDPServer((SocketServer.ThreadingUDPServer)):
     pass
-
 #
-class SocketListener((SocketServer.BaseRequestHandler)):
-
+class UDPSocket((SocketServer.BaseRequestHandler)):
+    '''creates a udp socket. all methods run in order setup(1),handle(2),finish(3).
+    '''
+    #
     def handle(self):
+        '''takes data from attacker and does stuff. Then jumps to finish function'''
+        #take info and do more stuff
+        data = self.request[0].strip()
+        skt = self.request[1]
+        #print(f"Data recieved: {data}")
+        #skt.sendto(data.upper(),self.client_address)
+        pass
+    #
+    def setup(self):
+        '''checks to see if ip is valid and not on whitelist.
+        Gets some initial info about attacker and alerts
+        on connection then jumps to handle function'''
+        ip = str(self.client_address[0])
+        if is_valid_ipv4(ip):
+            if not is_whitelisted_ip(ip):
+                #srv_ip = str(self.server.server_address[0])
+                srv_port = str(self.server.server_address[1])
+                write_console(f"connection from {ip} on udp port {srv_port}")
+    #
+    def finish(self):
+        '''Maybe get even more stuff and then
+        get that mofo outta here and perform cleanup'''
+        #print("gonna ban em")
+        return
+#
+class TCPSocket((SocketServer.BaseRequestHandler)):
+    '''creates a tcp socket. all methods run in order setup(1),handle(2),finish(3).
+    for now handle and finish do nothing'''
+    def handle(self):
+        '''takes data from attacker and does stuff. Then jumps to finish function'''
+        #take info and do stuff
         pass
 
     def setup(self):
+        #gather some base info and alert of a connection
+        #print("running setup method")
         self.data = self.request.recv(1024).strip()
         srv_ip = str(self.server.server_address[0])
         srv_port = str(self.server.server_address[1])
         # hehe send random length garbage to the attacker
         length = random.randint(5, 30000)
-
         # fake_string = random number between 5 and 30,000 then os.urandom the
         # command back
         fake_string = os.urandom(int(length))
@@ -65,7 +98,7 @@ class SocketListener((SocketServer.BaseRequestHandler)):
         try:
             ip = self.client_address[0]
             try:
-                write_log("Honeypot detected incoming connection from %s to port %s" % (ip, self.server.server_address[1]))
+                write_log("Honeypot detected incoming connection from %s to tcp port %s" % (ip, self.server.server_address[1]))
                 self.request.send(fake_string)
             except Exception as e:
                 write_console("Unable to send data to %s:%s" % (ip, str(self.server.server_address[1])))
@@ -93,10 +126,8 @@ class SocketListener((SocketServer.BaseRequestHandler)):
                             alert = message % (now, ip)
                         elif nrvars == 3:
                             alert = message % (now, ip, str(port))
-                    #enabled = read_config("EMAIL_ALERTS")
-                    #if enabled == "ON":
+                    #
                     warn_the_good_guys(subject, alert)
-
                     # close the socket
                     try:
                         self.request.close()
@@ -106,16 +137,18 @@ class SocketListener((SocketServer.BaseRequestHandler)):
                     # if it isn't whitelisted and we are set to ban
                     ban(ip)
                 else:
-                    write_log("Ignore connection from %s to port %s, whitelisted" % (ip, self.server.server_address[1]))
+                    write_log(f"Ignore connection from {ip} to port {str(self.server.server_address[1])} whitelisted.")
 
         except Exception as e:
             emsg = traceback.format_exc()
-            print("[!] Error detected. Printing: " + str(e))
-            print(emsg)
+            write_console(f"[!] Error detected. Printing: {str(e)}")
+            write_console(emsg)
             write_log(emsg,2)
             print("")
-            pass
-
+    #
+    def finish(self):
+        # get that mofo outta here and perform cleanup
+        return
 
 def open_sesame(porttype, port):
     if honeypot_autoaccept:
@@ -131,22 +164,21 @@ def open_sesame(porttype, port):
 # here we define a basic server
 
 def listentcp_server(tcpport, bind_interface):
+    '''Creates a basic TCP server based on TCPServer and TCPSocket classes'''
     if not tcpport == "":
         port = int(tcpport)
         bindsuccess = False
         errormsg = ""
         nrattempts = 0
-        while nrattempts < 5 and not bindsuccess:
+        while nrattempts < 2 and not bindsuccess:
             nrattempts += 1
             bindsuccess = True
             try:
                 nrattempts += 1
                 if bind_interface == "":
-                    server = SocketServer.ThreadingTCPServer(
-                        ('', port), SocketListener)
+                    server = TCPServer(('', port), TCPSocket)
                 else:
-                    server = SocketServer.ThreadingTCPServer(
-                        ('%s' % bind_interface, port), SocketListener)
+                    server = TCPServer(('%s' % bind_interface, port), TCPSocket)
                 open_sesame("tcp", port)
                 server.serve_forever()
             # if theres already something listening on this port
@@ -163,25 +195,26 @@ def listentcp_server(tcpport, bind_interface):
         subject = socket.gethostname() + " | Artillery error - unable to bind to TCP port %s" % port
         binderror += errormsg
         write_log(binderror, 2)
-        send_mail(subject, binderror)
+        warn_the_good_guys(subject, binderror)
 
 
 def listenudp_server(udpport, bind_interface):
+    '''Creates a basic UDP server based on UDPServer and UDPSocket classes'''
     if not udpport == "":
         port = int(udpport)
         bindsuccess = False
         errormsg = ""
         nrattempts = 0
-        while nrattempts < 5 and not bindsuccess:
+        while nrattempts < 2 and not bindsuccess:
             nrattempts += 1
             bindsuccess = True
             try:
+                #this will bind to all ips. localhost/0.0./and lan
                 if bind_interface == "":
-                    server = SocketServer.ThreadingUDPServer(
-                        ('', port), SocketListener)
+                    server = UDPServer(('', port), UDPSocket)
                 else:
-                    server = SocketServer.ThreadingUDPServer(
-                        ('%s' % bind_interface, port), SocketListener)
+                    #this will only bind to given ip from config file
+                    server = UDPServer(('%s' % bind_interface, port), UDPSocket)
                 open_sesame("udp", port)
                 server.serve_forever()
             # if theres already something listening on this port
@@ -199,9 +232,8 @@ def listenudp_server(udpport, bind_interface):
             subject = socket.gethostname() + " | Artillery error - unable to bind to UDP port %s" % port
             binderror += errormsg
             write_log(binderror, 2)
-            send_mail(subject, binderror)
-
-
+            warn_the_good_guys(subject, binderror)
+#
 def main(tcpports, udpports, bind_interface):
     #from .windows.sniffer import sniffer, get_interfaces
     #host = get_interfaces()
@@ -211,7 +243,7 @@ def main(tcpports, udpports, bind_interface):
     for tport in tports:
         tport = tport.replace(" ","")
         if tport != "":
-            write_log("Set up listener for tcp port %s" % tport)
+            write_log(f"Set up listener for tcp port {tport}")
            #thread.start_new_thread(sniffer, (host,bind_interface,'TCP',tport))
             thread.start_new_thread(listentcp_server, (tport, bind_interface,))
 
@@ -220,7 +252,7 @@ def main(tcpports, udpports, bind_interface):
     for uport in uports:
         uport = uport.replace(" ","")
         if uport != "":
-            write_log("Set up listener for udp port %s" % uport)
+            write_log(f"Set up listener for udp port {uport}")
             thread.start_new_thread(listenudp_server, (uport, bind_interface,))
            #thread.start_new_thread(sniffer, (host,'UDP',uport))
 
