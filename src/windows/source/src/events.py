@@ -45,6 +45,7 @@ data = "Application\0Data".encode("ascii")
 #category is always one for now
 #and even though its declared as type(int)
 #i have to define as int() in reporting func() or it fails
+
 category = 1
 process = GetCurrentProcess()
 token = OpenProcessToken(process, TOKEN_READ)
@@ -52,6 +53,11 @@ my_sid = GetTokenInformation(token, TokenUser)[0]
 info = win32evtlog.EVENTLOG_INFORMATION_TYPE
 warning = win32evtlog.EVENTLOG_WARNING_TYPE
 err = win32evtlog.EVENTLOG_ERROR_TYPE
+def write_windows_eventlog(appname: str, eventid: int, eventtype: str, send_toast: bool):
+    if send_toast is True:
+        print("sending toast...")
+    else:
+        pass
 
 #Left this here for reference
 #"""Report an event for a previously added event source."""

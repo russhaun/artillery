@@ -4,18 +4,16 @@
 #
 import time
 import re
-# needed for backwards compatibility of python2 vs 3 - need to convert to threading eventually
-try: import thread
-except ImportError: import _thread as thread
-from src.core import *
+import os
 
-from . import globals
-
-monitor_frequency = int(read_config("MONITOR_FREQUENCY"))
-ssh_attempts = read_config("SSH_BRUTE_ATTEMPTS")
+from src.config import monitor_frequency ,ssh_brute_attempts, banlist, is_posix_os
+from src.core import write_log, write_console , is_valid_ipv4, is_whitelisted_ip, ban
+from src.email_handler import warn_the_good_guys
 
 
-def ssh_monitor(monitor_frequency):
+
+
+def ssh_monitor(monitor_frequency: int)->None:
     counter = 0
     while 1:
         # for debian base
@@ -41,9 +39,9 @@ def ssh_monitor(monitor_frequency):
                 fileopen1 = open("/var/log/faillog", "r")
                 counter = 1
 
-        if not os.path.isfile(globals.g_banlist):
+        if not os.path.isfile(banlist):
             # create a blank file
-            filewrite = open(globals.g_banlist, "w")
+            filewrite = open(banlist, "w")
             filewrite.write("")
             filewrite.close()
 
@@ -53,7 +51,7 @@ def ssh_monitor(monitor_frequency):
             counter = 0
             for line in fileopen1:
                 counter = 0
-                fileopen2 = open(globals.g_banlist, "r")
+                fileopen2 = open(banlist, "r")
                 line = line.rstrip()
                 # search for bad ssh
                 match = re.search("Failed password for", line)
@@ -65,9 +63,9 @@ def ssh_monitor(monitor_frequency):
                     if is_valid_ipv4(ipaddress):
 
                         # if its not a duplicate then ban that ass
-                        if ssh_counter >= int(ssh_attempts):
-                            banlist = fileopen2.read()
-                            match = re.search(ipaddress, banlist)
+                        if ssh_counter >= int(ssh_brute_attempts):
+                            ban_list = fileopen2.read()
+                            match = re.search(ipaddress, ban_list)
                             if match:
                                 counter = 1
                                 # reset SSH counter
@@ -95,6 +93,8 @@ def ssh_monitor(monitor_frequency):
 
         except Exception as e:
             print("[*] An error in ssh monitor occured. Printing it out here: " + str(e))
-
-if is_posix():
-    thread.start_new_thread(ssh_monitor, (monitor_frequency,))
+#
+def start_ssh_monitor():
+    if is_posix_os is True:
+        write_console("[*] Launching SSH Bruteforce monitor.")
+        ssh_monitor(monitor_frequency)

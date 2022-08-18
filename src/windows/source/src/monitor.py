@@ -1,21 +1,12 @@
 
 #
 # This one monitors file system integrity
+
+from src.core import os, re,hashlib,time,subprocess, thread, datetime, shutil, is_windows, PureWindowsPath, write_console, write_log
+from src.config import read_config
+from src.email_handler import warn_the_good_guys
 #
-#from src.core import is_windows, read_config
-
-import os
-import re
-import hashlib
-import time
-import subprocess
-# needed for backwards compatibility of python2 vs 3 - need to convert to threading eventually
-try: import thread
-except ImportError: import _thread as thread
-import datetime
-import shutil
-from src.core import *
-
+#
 if is_windows():
     #i import like this due to not wanting to add windows imports in this file
     from .win_func import watch_directory_for_changes
@@ -134,11 +125,6 @@ def start_monitor():
         thread.start_new_thread(monitor_system, (time_wait,))
         time_wait = int(time_wait)
         time.sleep(time_wait)
-
-# start the thread only if its running posix will rewrite this module to
-# use difflib and some others butfor now its reliant on linux
-#if is_posix():
-#    thread.start_new_thread(start_monitor, ())
 #
 #
 def watch_folders():
@@ -158,6 +144,7 @@ def watch_folders():
         path = PureWindowsPath(directory)
         try:
             write_console("[*] Starting Folder Monitor on path: "+directory)
+            write_log("[*] Starting Folder Monitor on path: "+directory)
             #have to pass None here start_new_thread doesn't like when u only give 1 var
             #on function it only watches the first entry if u don't
             k = None
