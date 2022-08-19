@@ -2,60 +2,43 @@
 # -*- coding: utf-8 -*-
 #
 #
-#  Copyright 2018 Rhaun <Rhaun@RUSS-PC>
+"""
+ File contains functions for use in Artillery from BinaryDefense specific to windows.
+"""
 #
-#  This program is free software; you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-#  MA 02110-1301, USA.
-#
-# File contains functions for use in Artillery from BinaryDefense specific to windows.
-
 from re import U
 import subprocess
 import re
 import os
 import sys
-#import os,sys 
 #sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import threading
-import datetime
+#import threading
+#import datetime
 import time
-from win32evtlogutil import ReportEvent, AddSourceToRegistry, RemoveSourceFromRegistry
-from win32api import GetCurrentProcess, GetCurrentProcessId, GetUserNameEx, GetTempPath,SetConsoleTitle
-import win32gui
+from win32evtlogutil import RemoveSourceFromRegistry
+from win32api import SetConsoleTitle, GetCurrentProcessId
+#import win32gui
 from win32security import GetTokenInformation, TokenUser, OpenProcessToken
 import win32file
 import win32con
-from win32con import TOKEN_READ
-import win32evtlog
-from .events import SmbClientEnabled, SmbServerEnabled, SmbHelp, WpadEnabled, LLMNREnabled
+#from win32con import TOKEN_READ
+#import win32evtlog
+from .event_log import write_windows_eventlog , err , warning, info
+#from .events import SmbClientEnabled, SmbServerEnabled, SmbHelp, WpadEnabled, LLMNREnabled
 from . import globals
-from .core import write_log, write_console, is_windows, is_posix, init_globals, read_config
+from .core import write_log, write_console, is_windows, is_posix, init_globals
+from src.config import read_config
 #from zipfile import ZipFile
 import requests
-import random
-#import shutil
+#import random
+import platform
 #
-#
-#print("init_globals from win_func.py")
 init_globals()
+#
 if is_windows():
-    try:
-        from _winreg import *
-    except ImportError:
-        from winreg import *
 
+    from winreg import *
+#
 if is_posix():
     print("[!] Linux detected!!!!!!!!!.This script wil only run on windows. please try again")
     sys.exit()
@@ -69,15 +52,17 @@ if is_posix():
 def get_config(cfg):
     '''get various pre-set config options used throughout script'''
     #Current artillery version
-    current = ['2.8']
+    current = ['2.9']
     #Known Os versions
     oslst = ['Windows 7 Pro', 'Windows Server 2008 R2 Standard', 'Windows 8.1 Pro', 'Windows 10 Pro', 'Windows Small Business Server 2011 Essentials',
              'Windows Server 2012 R2 Essentials', 'Hyper-V Server 2012 R2','Windows Server 2016 Standard', 'Windows Server 2016 Essentials']
     #Known Build numbers
     builds = ['7601', '9600', '1709', '17134', '18362', '19041', '19042','19043','14393','19044']
     regkeys = [r'SOFTWARE\Microsoft\Windows NT\CurrentVersion', r'SYSTEM\CurrentControlSet\Services\LanmanServer', r'SYSTEM\CurrentControlSet\Services\LanmanWorkstation',
-               r'SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc', r'SOFTWARE\Policies\Microsoft\Windows NT\DNSClient']
-    #switches for New-NetFirewallRule & Set-NetFirewallRule & Remove-NetFirewallRule functions in powershellused to initially create group and then add to it/remove from
+               r'SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc',
+               r'SOFTWARE\Policies\Microsoft\Windows NT\DNSClient']
+    #switches for New-NetFirewallRule & Set-NetFirewallRule & Remove-NetFirewallRule functions in
+    #powershell used to initially create group and then add to it/remove from
     firew = ['New-NetFirewallRule ', 'Set-NetFirewallrule ', 'Remove-NetFirewallRule', '-Action ', '-DisplayName ', '-Direction ', '-Description ', '-Enabled ', '-RemoteAddress']
     pshell = ['powershell.exe ', '-ExecutionPolicy ', 'Bypass ']
     #list to hold variables of host system tried to grab most important ones
@@ -110,14 +95,17 @@ def get_title() -> None:
     return
 #
 def get_pid() -> None:
-    '''grabs current processid using GetCurrentProcessId() from pywin32.winapi and saves to txt file. for future use with "restart_server" script'''
-    id = GetCurrentProcessId()
-    s_id = str(id)
+    """
+    grabs current processid using GetCurrentProcessId()
+    from pywin32.winapi and saves to txt file. for future use with "restart_server" script
+    """
+    p_id = GetCurrentProcessId()
+    s_id = str(p_id)
     pid_txt = globals.g_pidfile
     with open(pid_txt, 'w') as cpid:
         cpid.write(s_id + "\n")
         cpid.close()
-    write_console(f"[*] Current ProcessId: {s_id}")
+    write_log(f"[*] Current ProcessId: {s_id}")
     return
 #Artillery version info
 ####################################################################################
@@ -126,7 +114,7 @@ def current_version() -> None:
     get_ver = get_config('CurrentBuild')
     ver = get_ver[0]
     s_ver =str(ver)
-    info = f"[*] Artillery Build: {s_ver}"
+    info = f"[*] Artillery Ver: {s_ver}"
     write_log(info)
     write_console(info)
     return
@@ -136,8 +124,10 @@ def current_version() -> None:
 ####################################################################################
 #
 def get_path_info():
-    '''grabs current host path info and returns needed values for functions in script with the help of a provided list
-     of items to look for. currently returns windows drive, systemdrive ,programfiles(x86) , architecture, computername'''
+    """grabs current host path info and returns needed values for functions in script
+     with the help of a provided list of items to look for. currently returns
+     windows drive, systemdrive ,programfiles(x86) , architecture, computername
+     """
     pathcfg = []
     lines = []
     keywords = get_config('Path')
@@ -195,13 +185,15 @@ def freeze_check() -> str:
     if temp == 'cold':
         exe_path = os.path.dirname(sys.executable)
         mei_path = bundle_dir
-        #write_console(f"[*] Freeze Check: we are {frozen} frozen.")
         write_log(f"[*] Freeze Check: we are {frozen} frozen.")
-        #write_log(f"exe path: {exe_path}")
-        #write_log(f"sys._MEIPASS: {mei_path}")
+        py_ver = platform.python_version()
+        #write_console(f"[*] Python ver: {py_ver}")
+        write_log(f"[*] Python ver: {py_ver}")
         return str(exe_path)
     else:
+        py_ver = platform.python_version()
         write_log(f"[*] Freeze Check: we are {frozen} frozen.")
+        write_log(f"[*] Python ver: {py_ver}")
 
 
 #
@@ -290,7 +282,7 @@ def update_windows():
 
         #pass
     #
-def get_os():
+def get_os()-> None:
     '''This function uses pre-compiled lists to try and determine host os by comparing values to host entries
     if a match is found reports version'''
     if is_posix:
@@ -347,8 +339,8 @@ def get_os():
                     OsBuild = build
             #when were done comparing print what was found
             write_console("[*] Detected OS: " + OsName+ " Build: " + OsBuild)
-
-    
+        return
+#
 #
 def get_win_config(param):
     '''Returns a value from windows registry related to settings for artillery.'''
@@ -373,7 +365,7 @@ def get_win_config(param):
         for item in data:
             if re.findall(exp, str(item)):
                 #print("found item: "+str(item))
-                ccfg.append(item)      
+                ccfg.append(item)
     #clear the results list
     results.clear()
     #setup our tuple to query
@@ -391,10 +383,18 @@ def get_win_config(param):
 #service functions
 ####################################################################################
 def insecure_service_check():
-    '''Performs checks on windows systems to see if known vulnerable services are enabled
-    and alerts if found. llmnr\wpad\smbv1. this func still needs alot of work to be effective
-    at properly detecting status of components.uses the registry heavily'''
-    warning = ""
+    """
+        Performs checks on windows systems to see if known vulnerable services are enabled
+    and alerts if found. llmnr,wpad,smbv1. this func still needs alot of work to be effective
+    at properly detecting status of components.uses the registry heavily
+
+    Note:
+
+            This whole routine wil be replaced at some point. i am devoloping script with
+        funtions to handle registry exclusivly with no txt files. 90% finished
+
+    """
+    #warning = ""
     #
     if is_windows():
         #loglink prints the full url to copy and paste
@@ -424,10 +424,9 @@ def insecure_service_check():
             srvmatch = re.findall('Srv2', srvresults)
             if srvmatch:
                 write_console(str(srvdisabled))
-                #print(str(srvdisabled))
                 write_log(str(srvdisabled))
             else:
-                SmbServerEnabled()
+                write_windows_eventlog("Artillery", 301, warning, False, None)
                 write_console(str(srvwarning) + str(srvprint))
                 write_log(str(srvwarning) + str(srvlog))
         srvdata.close()
@@ -456,7 +455,7 @@ def insecure_service_check():
                 write_console(str(clidisabled))
                 write_log(str(clidisabled))
             else:
-                SmbClientEnabled()
+                write_windows_eventlog("Artillery", 300, warning, False, None)
                 write_log(str(cliwarning) + str(clilog))
                 write_console(str(cliwarning) + str(cliprint))
         clidata.close()
@@ -479,10 +478,9 @@ def insecure_service_check():
             wpadmatch = re.findall('WpadOverride', wpadresults)
             if wpadmatch:
                 write_console("[*] Service Check: WPAD Override key is present")
-                #print("[*] Service Check: WPAD Override key is present")
                 write_log("[*] Service Check: WPAD Override key is present")
             else:
-                WpadEnabled()
+                write_windows_eventlog("Artillery", 302, warning, False, None)
                 write_console("[*] Service Check: WPAD overide key is not present. you will be vuln to MITM attacks")
                 write_log("[*] Service Check: WPAD overide key is not present. you will be vuln to MITM attacks")
         wpaddata.close()
@@ -515,7 +513,7 @@ def insecure_service_check():
                 write_console("[*] Service Check: LLMNR key to disable multicast is present")
                 write_log("[*] LLMNR key to disable multicast is present")
             else:
-                LLMNREnabled()
+                write_windows_eventlog("Artillery",303, warning, False, None)
                 write_console("[*] Service Check: LLMNR key to disable multicast is not present. you might be vuln to MITM attacks")
                 write_log("[*] LLMNR key to disable multicast is not present. you might be vuln to MITM attacks")
         llmnrdata.close()

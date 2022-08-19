@@ -5,20 +5,12 @@
 # monitor ftp and ban
 # added by e @ Nov 5th
 #############################
-
-import time
-import re
-try: import thread
-except ImportError: import _thread as thread
+from src.config import is_posix_os, ftp_brute_attempts, monitor_frequency, ftp_brute_attempts
+from src.email_handler import alert_user, warn_the_good_guys
 from src.core import *
 
-send_email = read_config("ALERT_USER_EMAIL")
 
-# how frequently we need to monitor
-monitor_time = read_config("MONITOR_FREQUENCY")
-monitor_time = int(monitor_time)
-ftp_attempts = read_config("FTP_BRUTE_ATTEMPTS")
-# check for whitelist
+
 
 from . import globals
 
@@ -57,7 +49,7 @@ def ftp_monitor(monitor_time):
                     if ip_check != False:
 
                         # if its not a duplicate then ban that ass
-                        if ftp_counter >= int(ftp_attempts):
+                        if ftp_counter >= int(ftp_brute_attempts):
                             banlist = fileopen2.read()
                             match = re.search(ipaddress, banlist)
                             if match:
@@ -68,28 +60,11 @@ def ftp_monitor(monitor_time):
                             # if counter is equal to 0 then we know that we
                             # need to ban
                             if counter == 0:
-                                whitelist_match = whitelist(ipaddress)
-                                if whitelist_match == 0:
-
-                                    # if we have email alerting on we can send
-                                    # email messages
-                                    email_alerts = read_config(
-                                        "EMAIL_ALERTS").lower()
-                                    # check email frequency
-                                    email_frequency = read_config(
-                                        "EMAIL_FREQUENCY").lower()
-
-                                    if email_alerts == "on" and email_frequency == "off":
-                                        mail(send_email,
-                                             "[!] Artillery has banned an FTP brute force. [!]",
-                                             "The following IP has been blocked: " + ipaddress)
-
-                                    # check frequency is allowed
-                                    if email_alerts == "on" and email_frequency == "on":
-                                        prep_email(
-                                            "Artillery has blocked (blacklisted) the following IP for FTP brute forcing violations: " + ipaddress + "\n")
-
-                                    # write out to log
+                                whitelist_match = is_whitelisted_ip(ipaddress)
+                                if whitelist_match is False:
+                                    alert = f"[!] Artillery has banned an FTP brute force. The following IP has been blocked: {ipaddress}"
+                                    warn_the_good_guys(alert_user, alert)
+                                   #
                                     write_log(
                                         "Artillery has blocked (blacklisted) the following IP for FTP brute forcing violations: " + ipaddress)
 
@@ -107,6 +82,12 @@ def ftp_monitor(monitor_time):
         except Exception as e:
             print("[*] An error in ftp monitor occured. Printing it out here: " + str(e))
 
-if is_posix():
-    # start thread
-    thread.start_new_thread(ftp_monitor, (monitor_time,))
+
+
+def start_ftp_monitor():
+    """
+    Starts ftp monitor service. Currently only availible on posix based systems
+    """
+    if is_posix_os is True:
+        write_console("[*] Launching FTP Bruteforce monitor.")
+        ftp_monitor(monitor_frequency)

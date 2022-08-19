@@ -198,10 +198,17 @@ def write_source_code():
         print("[*] Done.....")
     os.chdir(HOME)
     if os.path.isfile("logs\\alerts.log"):
-        print("[*] Copying log file.....")
+        print("[*] Copying alerts log file.....")
         os.chdir('logs')
         subprocess.run(['cmd', '/C', 'copy', 'alerts.log', SOURCELOGS],stdout=subprocess.DEVNULL)
         subprocess.run(['cmd', '/C', 'copy', 'alerts.log', CLIENTLOGS],stdout=subprocess.DEVNULL)
+        print("[*] Done.....")
+    os.chdir(HOME)
+    if os.path.isfile("logs\\exceptions.log"):
+        print("[*] Copying exceptions log file.....")
+        os.chdir('logs')
+        subprocess.run(['cmd', '/C', 'copy', 'exceptions.log', SOURCELOGS],stdout=subprocess.DEVNULL)
+        subprocess.run(['cmd', '/C', 'copy', 'exceptions.log', CLIENTLOGS],stdout=subprocess.DEVNULL)
         print("[*] Done.....")
     os.chdir(HOME)
     print("[*] Switching to dist folder.....")
@@ -220,7 +227,7 @@ def write_source_code():
     return
 #
 bin_files = []
-win_dll_path = ['C:\\Program Files (x86)\\Windows Kits\\10\\Redist\\ucrt\\DLLS\\x64']
+win_dll_path = ['C:\\Program Files (x86)\\Windows Kits\\10\\Redist\\10.0.19041.0\\ucrt\\DLLs\\x64']
 pyqt5_dll_path = [HOMEPATH + '\\pyqt5\\qt\\bin\\']
 hooks_dir = [HOME+'\\hooks']
 print("[*] Done setting up variables.....")
@@ -258,7 +265,7 @@ if BUILDUI: #file is not ready for release yet so this will return false for now
             ui.binaries,
             ui.zipfiles,
             ui.datas,
-            icon = ['src\\icons\\toast_events_icon.ico'],
+            icon = 'src\\icons\\toast_events_icon.ico',
             name='ArtilleryUI',
             debug=False,
             bootloader_ignore_signals=False,
@@ -283,12 +290,11 @@ console = Analysis(['Artillery.py'],
              noarchive=False)
 console_pyz = PYZ(console.pure, console.zipped_data,
              cipher=block_cipher)
-console_exe = EXE(console_pyz,
-          console.scripts,
+console_exe = EXE(console_pyz,console.scripts,
           console.binaries,
           console.zipfiles,
           console.datas,
-          icon = ['src\\icons\\toast_events_icon.ico'],
+          icon = 'src\\icons\\toast_events_icon.ico',
           name='Artillery',
           debug=False,
           bootloader_ignore_signals=False,
@@ -318,7 +324,7 @@ restart_exe = EXE(restart_pyz,
           restart.binaries,
           restart.zipfiles,
           restart.datas,
-          icon = ['src\\icons\\toast_events_icon.ico'],
+          icon = 'src\\icons\\toast_events_icon.ico',
           name='Restart',
           debug=False,
           bootloader_ignore_signals=False,
@@ -348,7 +354,7 @@ remove_exe = EXE(remove_pyz,
           remove.binaries,
           remove.zipfiles,
           remove.datas,
-          icon = ['src\\icons\\toast_events_icon.ico'],
+          icon = 'src\\icons\\toast_events_icon.ico',
           name='UnBan',
           debug=False,
           bootloader_ignore_signals=False,

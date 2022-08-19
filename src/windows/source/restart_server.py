@@ -5,20 +5,15 @@ from subprocess import CalledProcessError
 import time
 import sys
 from pathlib import PureWindowsPath
-from src.globals import  *
+from src.config import is_windows_os, is_posix_os
 from src.core import *
-#init_globals, is_windows, is_posix, kill_artillery, write_log, write_console, grab_time
-try:
-    init_globals()
-except Exception as e:
-    write_console(e)
+
 #set some stuff up just for windows
-if is_windows():
+if is_windows_os is True:
     import win32gui
     import win32process
     from win32api import GetUserNameEx
     from src.pyuac import isUserAdmin, runAsAdmin
-    from src.events import ArtilleryStopEvent
     EXE_FILE = "Artillery.exe"
     EXE_PATH = str(globals.g_apppath)
     PID_INFO_PATH = globals.g_pidfile
@@ -54,11 +49,11 @@ def kill_artillery_win():
             #grab bootloader id
             bootloader = GrabBootLoader()
             #read main id from file
-            with open(PID_INFO_PATH, 'r') as id:
-                for line in id:
+            with open(PID_INFO_PATH, 'r') as p_id:
+                for line in p_id:
                     line = line.strip()
                     PID.append(line)
-            id.close()
+            p_id.close()
             mainwindow = PID[0]
             if bootloader:
                 write_console("[!] Bootloader ProcessID: "+ bootloader)
@@ -70,7 +65,7 @@ def kill_artillery_win():
                     kill_bootloader = subprocess.check_call(['cmd', '/C', 'taskkill', '/PID', bootloader], shell=True)
                     write_console("[!] Sucessflly removed it's head.....")
                     #subprocess.run(['cmd','/C', 'tasklist', '/FI', 'imagename eq ArtilleryUI.exe'])
-                    ArtilleryStopEvent()
+                    #ArtilleryStopEvent()
                     return True
                 except CalledProcessError as err:
                     write_console("[*] Looks like this process is dead already. ")
@@ -147,7 +142,7 @@ def looper():
 
 
 if __name__ == "__main__":
-    if is_windows():
+    if is_windows_os is True:
         if not isUserAdmin():
             runAsAdmin()
             sys.exit(1)
@@ -155,4 +150,15 @@ if __name__ == "__main__":
             time.sleep(2)
             write_console(f"[*] Running as: {U_INFO}")
             looper()
+    if is_posix_os is True:
+        proc = subprocess.Popen("ps -A x | grep artiller[y].py", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        # kill running instance of artillery
+        kill_artillery()
+        #
+        print("[*] %s: Restarting Artillery Server..." % (grab_time()))
+        if os.path.isfile("/var/artillery/artillery.py"):
+            write_log("Restarting the Artillery Server process...",1)
+            subprocess.Popen("python /var/artillery/artillery.py &",
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    
            
