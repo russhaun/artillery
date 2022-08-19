@@ -50,37 +50,38 @@ MSI method:(preferred)
 
 ###### Tested on/with
 
-- win10 21h1 19043
+- win10 21h2 19044
 - server 2012/16
 
 ###### Alpha testing
 
-- Python 3.8.x and ^
+- python 3.10 and ^
+- windows 2019/11
 - pop_os
 - parrot_os
+- kali
 
 ###### Built with
 
-- pyinstaller 4.5.1
-- python 3.6
-- visualstudio 2017 (event dll\msi)
+- pyinstaller 5.3
+- python 3.8.10
+- visualstudio 2019 (event dll\msi)
 
 ###### Building project
 
 ###### requirements:
 
-    - PyQT5
     - win10toast
-    - pywin32 v228
-    - pyinstaller 4.5.1
-    - python 3.6(visual studio install)
-    - win10 sdk
+    - pywin32 v300
+    - pyinstaller 5.3
+    - python 3.8.10(python install)
+    - win10 19044 sdk
 
   Note:
     the library win10toast is a custom one and different from the one on pip.please use this repo to install. https://github.com/russhaun/Windows-10-Toast-Notifications .This repo adds callbacks to class.
 
   Also:
-    version of pywin32 is capped(for now @ 228) use binary installer from here. https://github.com/mhammond/pywin32/releases/tag/b228 . due to issues with parts of project breaking if upgraded. has to do with py 2.7 code still present. working on new branch now. install appropriate version for your platform ex: 32/64 bit
+    version of pywin32 is capped(for now @ 300) use binary installer from here. https://github.com/mhammond/pywin32/releases/tag/b300 . python 2 support has been removed in this release. install appropriate version for your platform ex: 32/64 bit
 
   navigate to windows folder of extacted repo. you will see a folder called "source" copy this folder to a place of your choosing rename if you wish.open a cmd prompt in this new location  and execute "pyinstaller artillery.spec" (without quotes)  when complete files will be located in "finalbuild" folder, this folder is created during build.this includes any src code as well. this project self replicates src\compiled binaries to finalbuild folder will improve as time goes on. full instructions are in "build_instructions.txt"
 
