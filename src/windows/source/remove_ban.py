@@ -18,36 +18,35 @@ def linux_route():
     """
     try:
         ipaddress = sys.argv[1]
+        #read banlist path
+        path = check_banlist_path()
         if is_valid_ipv4(ipaddress):
-            path = check_banlist_path()
-            fileopen = open(path, "r")
-            data = fileopen.read()
-            data = data.replace(ipaddress + "\n", "")
-            filewrite = open(path, "w")
-            filewrite.write(data)
-            filewrite.close()
-
-            write_console("Listing all iptables looking for a match... if there is a massive amount of blocked IP's this could take a few minutes..")
+            write_console(f"Searching iptables chain looking for {ipaddress}... If there is a massive amount of blocked IP's this could take a few minutes..")
             proc = subprocess.Popen("iptables -L ARTILLERY -n -v --line-numbers | grep %s" % (
                 ipaddress), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-
+            #
             for line in proc.stdout.readlines():
                 line = str(line)
                 match = re.search(ipaddress, line)
                 if match:
-                    # this is the rule number
                     line = line.split(" ")
+                    #this is the rule number
                     line = line[0]
-                    write_console(line)
-                    # delete it
+                    write_console(f"Deleting entry {line} from iptables chain")
+                    # delete entry from iptables chain
                     subprocess.Popen("iptables -D ARTILLERY %s" % (line),
                                     stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
-        #
+                    #remove entry from banlist
+                    fileopen = open(path, "r")
+                    data = fileopen.read()
+                    data = data.replace(ipaddress + "\n", "")
+                    filewrite = open(path, "w")
+                    filewrite.write(data)
+                    filewrite.close()
         # if not valid then flag
         else:
             write_console("[!] Not a valid IP Address. Exiting.")
             sys.exit()
-    #
     except IndexError:
         write_console("Description: Simple removal of IP address from banned sites.")
         write_console("[!] Usage: remove_ban.py <ip_address_to_ban>")

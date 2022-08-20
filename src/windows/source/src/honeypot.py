@@ -177,7 +177,7 @@ def open_sesame(porttype, port):
             execOScmd(cmd)
             cmd = "iptables -A ARTILLERY -p %s --dport %s -j ACCEPT -w 3" % (porttype, port)
             execOScmd(cmd)
-            write_log("Created iptables rule to accept incoming connection to %s %s" % (porttype, port))
+            #write_log("Created iptables rule to accept incoming connection to %s %s" % (porttype, port))
         if is_windows():
             pass
 #
@@ -252,6 +252,8 @@ def main(tcpports, udpports, bind_interface):
         if ports were not used from config file.
     """
     # split tcpports into tuple
+    open_tcp = []
+    open_udp = []
     closed_tcp = []
     closed_udp = []
     tports = tcpports.split(",")
@@ -262,7 +264,8 @@ def main(tcpports, udpports, bind_interface):
             #check to see if port is in use
             port_availible = check_open_port(tport,"TCP",bind_interface)
             if port_availible is True:
-                write_log(f"[*] Set up listener for tcp port {tport}")
+                open_tcp.append(tport)
+                #write_log(f"[*] Set up listener for tcp port {tport}")
                 time.sleep(.5)
                 #thread.start_new_thread(sniffer, (host,bind_interface,'TCP',tport))
                 thread.start_new_thread(listentcp_server, (tport, bind_interface,))
@@ -277,20 +280,35 @@ def main(tcpports, udpports, bind_interface):
             #check to see if port is in use
             port_availible = check_open_port(uport,"UDP",bind_interface)
             if port_availible is True:
-                write_log(f"[*] Set up listener for udp port {uport}")
+                open_udp.append(uport)
+                #write_log(f"[*] Set up listener for udp port {uport}")
                 time.sleep(.5)
                 #thread.start_new_thread(sniffer, (host,bind_interface,'TCP',tport))
                 thread.start_new_thread(listenudp_server, (uport, bind_interface,))
             else:
                 closed_udp.append(uport)
     #
-    #check to see if some ports were closed 
+    #check to see if some ports were open/closed 
     # during startup and report if so
+    tcp_bind_success = False
+    udp_bind_success = False
     tcp_bind_error = False
     udp_bind_error = False
     failed_tcp = 0
     failed_udp = 0
+    success_tcp = 0
+    success_udp = 0
     #if there are entries
+    if len(open_udp) > 0:
+        #set to true
+        udp_bind_success = True
+        #add num of ports to list
+        success_udp += len(open_udp)
+    if len(open_tcp) > 0:
+        #set to true
+        tcp_bind_success = True
+        #add num of ports to list
+        success_tcp += len(open_tcp)
     if len(closed_udp) > 0:
         #set error to true
         udp_bind_error = True
@@ -299,7 +317,7 @@ def main(tcpports, udpports, bind_interface):
     if len(closed_tcp) > 0:
         tcp_bind_error = True
         failed_tcp += len(closed_tcp)
-    #check if either is set to true and set up msg for alert
+    #check if bind_error is set to true and set up msg for alert
     if tcp_bind_error or udp_bind_error is True:
         subject = " Artillery error - Unable to bind to some ports"
         if tcp_bind_error and udp_bind_error is True:
@@ -308,16 +326,26 @@ def main(tcpports, udpports, bind_interface):
             bind_error = f"Artillery was unable to bind to {str(failed_tcp)} TCP port/ports: {str(closed_tcp)}. This could be due to an active port in use."
         if tcp_bind_error is False and udp_bind_error is True:
             bind_error = f"Artillery was unable to bind to {str(failed_udp)} UDP port/ports: {str(closed_udp)} This could be due to an active port in use."
-        #print(bind_error)
-        write_log(f"[!] {bind_error}", 2)
+        write_log(f"{bind_error}", 2)
         warn_the_good_guys(subject, bind_error)
         #clear exception log
         with open(exceptionlog,"r+") as log:
             log.truncate(0)
+    if tcp_bind_success or udp_bind_success is True:
+        subject = "Set up listener on some ports"
+        if tcp_bind_success and udp_bind_success is True:
+            message = f"{subject} Opened {str(success_tcp)} TCP ports and {str(success_udp)} UDP Ports"
+        if tcp_bind_success is True and udp_bind_success is False:
+            message = f"{subject} Opened {str(success_tcp)} TCP ports."
+        if tcp_bind_success is False and udp_bind_success is True:
+            message = f"{subject} Opened {str(success_udp)} UDP Ports."
+        write_log(f"{message}", 0)
+        write_log(f"TCP ports: {str(open_tcp)}",0)
+        write_log(f"UDP ports: {str(open_udp)}",0)
+        if is_posix():
+            write_log(f"Created {success_tcp+success_udp} iptables rules to accept incoming connections",0)
+        #write_console(f"Created iptables rule to accept incoming connection for {success_tcp+success_udp} ports")
 
-    #loop with timer to check alerts file
-    #if alerts exist compose message and send
-#
 # launch the server
 def start_honeypot():
     """

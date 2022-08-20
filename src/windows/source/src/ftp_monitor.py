@@ -90,4 +90,4 @@ def start_ftp_monitor():
     """
     if is_posix_os is True:
         write_console("[*] Launching FTP Bruteforce monitor.")
-        ftp_monitor(monitor_frequency)
+        ftp_monitor(int(monitor_frequency))

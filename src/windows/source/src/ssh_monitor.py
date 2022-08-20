@@ -97,4 +97,4 @@ def ssh_monitor(monitor_frequency: int)->None:
 def start_ssh_monitor():
     if is_posix_os is True:
         write_console("[*] Launching SSH Bruteforce monitor.")
-        ssh_monitor(monitor_frequency)
+        ssh_monitor(int(monitor_frequency))

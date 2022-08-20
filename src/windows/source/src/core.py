@@ -66,6 +66,7 @@ def init_globals()->None:
         globals.g_host_os = ""
         globals.g_syspath = ""
      #consolidated nix* variants
+   
     if ('linux' or 'linux2' or 'darwin') in sys.platform:
         globals.g_apppath = "/var/artillery"
         globals.g_appfile = globals.g_apppath + "/artillery.py"
@@ -618,7 +619,9 @@ def syslog(message, alerttype):
     """
     function to handle various logging methods availible. writes to SYSLOG, Remote SYSLOG, FILE
     """
-    type = config.read_config("SYSLOG_TYPE").lower()
+    type = config.read_config("SYSLOG_TYPE")
+    if type == None:
+        type = "FILE"
     alertindicator = ""
     if alerttype == -1:
         alertindicator = ""
@@ -630,7 +633,7 @@ def syslog(message, alerttype):
         alertindicator = "[ERROR]"
 
     # if we are sending remote syslog
-    if type == "remote":
+    if type == "remote" or "REMOTE":
 
         import socket
         FACILITY = {
@@ -666,7 +669,7 @@ def syslog(message, alerttype):
         syslog_send(syslogmsg, host=remote_syslog, port=remote_port)
 
     # if we are sending local syslog messages
-    if type == "local":
+    if type == "local" or "LOCAL":
         my_logger = logging.getLogger('Artillery')
         my_logger.setLevel(logging.DEBUG)
         handler = logging.handlers.SysLogHandler(address='/dev/log')
@@ -680,7 +683,7 @@ def syslog(message, alerttype):
 
     # if we don't want to use local syslog and just write to file in
     # logs/alerts.log
-    if type == "file":
+    if type == "file" or "FILE":
         if not os.path.isdir("%s/logs" % globals.g_apppath):
             os.makedirs("%s/logs" % globals.g_apppath)
 
@@ -726,8 +729,8 @@ def kill_artillery()->None:
         proc = subprocess.Popen(
             "ps -A x | grep artiller[y]", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         pid, err = proc.communicate()
-        pid = [int(x.strip()) for line in pid.split('\n')
-               for x in line.split(" ") if int(x.isdigit())]
+        pid = [int(x.strip()) for line in pid.split()
+               for x in line.split() if int(x.isdigit())]
         # try:
         # pid = int(pid[0])
         # except:
@@ -739,8 +742,8 @@ def kill_artillery()->None:
             os.kill(i, signal.SIGKILL)
 
     except Exception as e:
+        #print("caught exception")
         print(e)
-        pass
 #
 def cleanup_artillery()->None:
     ban_check = config.read_config("HONEYPOT_BAN").lower()
