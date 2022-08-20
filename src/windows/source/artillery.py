@@ -57,6 +57,7 @@ class MainWindow():
             get_pid()
         if is_posix_os is True:
             check_config()
+            #current_version()
             if not os.path.isdir(globals.g_apppath + "/database/"):
                 os.makedirs(globals.g_apppath + "/database/")
             if not os.path.isfile(globals.g_apppath + "/database/temp.database"):
