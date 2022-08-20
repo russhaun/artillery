@@ -151,14 +151,13 @@ if __name__ == "__main__":
             write_console(f"[*] Running as: {U_INFO}")
             looper()
     if is_posix_os is True:
-        proc = subprocess.Popen("ps -A x | grep artiller[y].py", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         # kill running instance of artillery
         kill_artillery()
         #
-        print("[*] %s: Restarting Artillery Server..." % (grab_time()))
         if os.path.isfile("/var/artillery/artillery.py"):
+            print(f"[*] {grab_time()}: Restarting Artillery Server...")
             write_log("Restarting the Artillery Server process...",1)
-            subprocess.Popen("python /var/artillery/artillery.py &",
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            subprocess.Popen(["python3", "/var/artillery/artillery.py","&"],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
     
            
