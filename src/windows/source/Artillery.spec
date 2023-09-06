@@ -7,6 +7,7 @@ from os.path import isfile, join
 import subprocess
 import time
 import sys
+import numpy
 
 def get_time():
     '''returns local time for use in script'''

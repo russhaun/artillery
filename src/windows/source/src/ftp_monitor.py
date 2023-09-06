@@ -8,11 +8,8 @@
 from src.config import is_posix_os, ftp_brute_attempts, monitor_frequency, ftp_brute_attempts
 from src.email_handler import alert_user, warn_the_good_guys
 from src.core import *
-
-
-
-
 from . import globals
+
 
 def ftp_monitor(monitor_time):
     while 1:
@@ -47,7 +44,6 @@ def ftp_monitor(monitor_time):
                     ipaddress = line[-2]
                     ip_check = is_valid_ipv4(ipaddress)
                     if ip_check != False:
-
                         # if its not a duplicate then ban that ass
                         if ftp_counter >= int(ftp_brute_attempts):
                             banlist = fileopen2.read()
@@ -56,7 +52,6 @@ def ftp_monitor(monitor_time):
                                 counter = 1
                                 # reset FTP counter
                                 ftp_counter = 0
-
                             # if counter is equal to 0 then we know that we
                             # need to ban
                             if counter == 0:
@@ -64,7 +59,7 @@ def ftp_monitor(monitor_time):
                                 if whitelist_match is False:
                                     alert = f"[!] Artillery has banned an FTP brute force. The following IP has been blocked: {ipaddress}"
                                     warn_the_good_guys(alert_user, alert)
-                                   #
+                                    #
                                     write_log(
                                         "Artillery has blocked (blacklisted) the following IP for FTP brute forcing violations: " + ipaddress)
 
@@ -72,7 +67,6 @@ def ftp_monitor(monitor_time):
                                     # src.core
                                     ban(ipaddress)
                                     ftp_counter = 0
-
                                     # wait one to make sure everything is
                                     # caught up
                                     time.sleep(1)
@@ -81,7 +75,6 @@ def ftp_monitor(monitor_time):
 
         except Exception as e:
             print("[*] An error in ftp monitor occured. Printing it out here: " + str(e))
-
 
 
 def start_ftp_monitor():

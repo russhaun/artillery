@@ -43,14 +43,14 @@ class ToastMessages(ToastNotifier):
     def __init__(self):
         super().__init__()
         pass
-    #
+
     def grab_event_info(self):
         #print('hey')
         pass
 
     def on_event(self):
         self.grab_event_info()
-        
+
     #
     def get_icon_path(self):
         '''override default icon with custom one. we pass this to showtoast as a path object'''
@@ -62,19 +62,21 @@ class ToastMessages(ToastNotifier):
         homedir = os.getcwd()
         icon = 'toast_events_icon.ico'
         #create path object to pass
-        icondir = PureWindowsPath(homedir,icon)
+        icondir = PureWindowsPath(homedir, icon)
         if os.path.isfile(icon):
             new_icon = icondir
         else:
             #else fall back and use default of class
             new_icon = None
         return new_icon
-#
-#
+
+
 toast = ToastMessages()
+
+
 toast_title = str("Artillery - Advanced Threat Detection")
-#
-#
+
+
 def write_windows_eventlog(AppName: str, eventID: int, event_type: str, send_toast: bool, ip: None):
     """
     Writes an event to windows event log. also if send_toast is set to True
@@ -114,9 +116,9 @@ def write_windows_eventlog(AppName: str, eventID: int, event_type: str, send_toa
         - Artillery_Removed          503              info
 
     for ex.
-        
+
         - write_windows_eventlog('Artillery', 200, warning, True, ip)
-        
+
         This will log a honeypot attack message and send toast alert with values given
 
 
@@ -129,17 +131,17 @@ def write_windows_eventlog(AppName: str, eventID: int, event_type: str, send_toa
     if send_toast is True:
         if eventID == 200:
             attacking_ip = str(ip)
-            toast.show_toast(title= toast_title,
-            msg=f"I've detected an atack from {str(attacking_ip)}"+"\n""an event was sent to the Application eventlog",
+            toast.show_toast(title=toast_title,
+            msg=f"I've detected an atack from {str(attacking_ip)}" + "\n""an event was sent to the Application eventlog",
             icon_path=None,
             duration=2,
-            threaded=True,
+            threaded=False,
             callback_on_click=None
             )
         elif eventID == 100:
-            toast.show_toast(title= toast_title,
+            toast.show_toast(title=toast_title,
             msg="Artillery has been started",
-            icon_path= None,
+            icon_path=toast.get_icon_path(),
             duration=2,
             threaded=False,
             callback_on_click=toast.on_event()
@@ -149,8 +151,7 @@ def write_windows_eventlog(AppName: str, eventID: int, event_type: str, send_toa
 
     ReportEvent(AppName, eventID, eventCategory=category, eventType=event_type, data=data, sid=my_sid)
 #
-#
-#
+
+
 def read_windows_eventlog(LogName: str, eventID: int, event_type: str):
     pass
-

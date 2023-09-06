@@ -11,7 +11,8 @@ from src.core import is_valid_ipv4, write_console, globals, check_banlist_path
 if is_windows_os is True:
     from src.pyuac import isUserAdmin
     #
-#
+
+
 def linux_route():
     """
     removes given ip addr from iptables and also banlist
@@ -34,8 +35,7 @@ def linux_route():
                     line = line[0]
                     write_console(f"Deleting entry {line} from iptables chain")
                     # delete entry from iptables chain
-                    subprocess.Popen("iptables -D ARTILLERY %s" % (line),
-                                    stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+                    subprocess.Popen("iptables -D ARTILLERY %s" % (line), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
                     #remove entry from banlist
                     fileopen = open(path, "r")
                     data = fileopen.read()
@@ -50,8 +50,8 @@ def linux_route():
     except IndexError:
         write_console("Description: Simple removal of IP address from banned sites.")
         write_console("[!] Usage: remove_ban.py <ip_address_to_ban>")
-#  
-#
+
+
 def windows_route():
 
     """
@@ -67,12 +67,11 @@ def windows_route():
                 write_console("[*] Trying to delete entry.....")
                 cmd = subprocess.run(['cmd', '/C', 'route', 'delete', ip], shell=True, check=True)
             except subprocess.CalledProcessError as err:
-                write_console("[*] "+ err)
+                write_console("[*] " + err)
         #
         try:
             ipaddress = sys.argv[1]
             #remove entry from banlist
-            
             if is_valid_ipv4(ipaddress):
                 path = check_banlist_path()
                 fileopen = open(path, "r")
@@ -92,12 +91,11 @@ def windows_route():
             write_console(f"banlist path: {str(globals.g_banlist)}")
             write_console("Description: Simple removal of IP address from banned sites.")
             write_console("[!] Usage: UnBan.exe <ip_address_to_ban>")
-#
-#
-if __name__ =="__main__":
+
+
+if __name__ == "__main__":
     if is_windows_os is True:
         windows_route()
     #
     if is_posix_os is True:
         linux_route()
-
