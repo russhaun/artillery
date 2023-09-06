@@ -21,24 +21,26 @@ if is_windows_os is True:
     #userneme in domain\user format
     U_INFO = GetUserNameEx(2)
 
+
 def GrabBootLoader():
     '''looks for artillery window process and returns id. it checks
      for console version 1st and then ui version. Returns None if not found.'''
     try:
         if win32gui.FindWindow('ConsoleWindowClass', 'Artillery - Advanced Threat Detection'):
             hwnd = win32gui.FindWindow('ConsoleWindowClass', 'Artillery - Advanced Threat Detection')
-            threadid,pid = win32process.GetWindowThreadProcessId(hwnd)
+            threadid, pid = win32process.GetWindowThreadProcessId(hwnd)
             #return a string to use with taskkill
             return str(pid)
         else:
             if win32gui.FindWindow(None, 'Artillery Shell'):
-                hwnd = win32gui.FindWindow( None, 'Artillery Shell')
-                threadid,pid = win32process.GetWindowThreadProcessId(hwnd)
+                hwnd = win32gui.FindWindow(None, 'Artillery Shell')
+                threadid, pid = win32process.GetWindowThreadProcessId(hwnd)
                 #return a string to use with taskkill
                 return str(pid)
     except win32gui.error as err:
         return False
-#
+
+
 def kill_artillery_win():
     '''opens pid.txt file made from artillery.exe or artilleryui.exe to grab current
     PID to terminate. Note pyinstaller exe's create 2 running instances.
@@ -56,8 +58,8 @@ def kill_artillery_win():
             p_id.close()
             mainwindow = PID[0]
             if bootloader:
-                write_console("[!] Bootloader ProcessID: "+ bootloader)
-                write_console("[*] MainWindow ProcessID: "+ mainwindow)
+                write_console("[!] Bootloader ProcessID: " + bootloader)
+                write_console("[*] MainWindow ProcessID: " + mainwindow)
                 write_console('[*] Attempting to kill Artillery now.....')
                 write_console("[!] killing python with a big sword.....")
                 try:
@@ -79,6 +81,7 @@ def kill_artillery_win():
     except FileNotFoundError as err:
         pass
 
+
 def restart_artillery_win():
     '''restarts main exe by calling after waiting a few seconds
     to allow previous instance if any to close down'''
@@ -91,7 +94,7 @@ def restart_artillery_win():
         time.sleep(1)
         try:
             if os.path.isdir(EXE_PATH):
-                binary = PureWindowsPath(EXE_PATH,EXE_FILE)
+                binary = PureWindowsPath(EXE_PATH, EXE_FILE)
                 #opens exe in seperate window
                 subprocess.Popen([str(binary)], creationflags=subprocess.CREATE_NEW_CONSOLE)
                 return
@@ -104,7 +107,7 @@ def restart_artillery_win():
         time.sleep(3)
         try:
             if os.path.isdir(EXE_PATH):
-                binary = PureWindowsPath(EXE_PATH,EXE_FILE)
+                binary = PureWindowsPath(EXE_PATH, EXE_FILE)
                 #opens exe in seperate window
                 subprocess.Popen([str(binary)], creationflags=subprocess.CREATE_NEW_CONSOLE)
                 return
@@ -112,8 +115,8 @@ def restart_artillery_win():
                 pause = input('[*] artillery_start.bat was not found. Please make sure the file exists.\n[*] Press enter to continue')
         except FileNotFoundError as e:
             pass
-#
-#
+
+
 def main():
     cmd = ""
     try:
@@ -132,13 +135,12 @@ def main():
         time.sleep(3)
         sys.exit()
     else:
-        write_console("[!] Unknown command: " +cmd)
+        write_console("[!] Unknown command: " + cmd)
         looper()
 
 
 def looper():
     main()
-
 
 
 if __name__ == "__main__":
@@ -156,8 +158,5 @@ if __name__ == "__main__":
         #
         if os.path.isfile("/var/artillery/artillery.py"):
             print(f"[*] {grab_time()}: Restarting Artillery Server...")
-            write_log("Restarting the Artillery Server process...",1)
-            subprocess.Popen(["python3", "/var/artillery/artillery.py","&"],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
-    
-           
+            write_log("Restarting the Artillery Server process...", 1)
+            subprocess.Popen(["python3", "/var/artillery/artillery.py", "&"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)

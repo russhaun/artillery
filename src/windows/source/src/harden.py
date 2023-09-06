@@ -9,10 +9,9 @@ from src.email_handler import warn_the_good_guys
 from src.core import *
 if is_windows_os is True:
     from src.win_func import insecure_service_check
-
-
 # flag warnings, base is nothing
 warning = ""
+
 
 def linux_harden_check():
     if os.path.isfile("/etc/ssh/sshd_config"):
@@ -83,7 +82,8 @@ def linux_harden_check():
         if len(warning) > 1:
             subject = "[!] Insecure configuration detected on filesystem: "
             warn_the_good_guys(subject, subject + warning)
-#
+
+
 def hardening_checks():
     if harden_check is True:
         write_console("[*] Checking system hardening.")
@@ -96,4 +96,3 @@ def hardening_checks():
             write_console('[*] Loading service checks.....')
             write_log('[*] Loading service checks.....')
             linux_harden_check()
-

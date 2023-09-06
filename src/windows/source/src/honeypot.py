@@ -3,7 +3,6 @@
 # this is the honeypot stuff
 #
 #
-# needed for backwards compatibility of python2 vs 3 - need to convert to threading eventually
 
 import _thread as thread
 import socket
@@ -15,35 +14,32 @@ import datetime
 from src.core import *
 import traceback
 from src.email_handler import warn_the_good_guys
-from src.config import tcp_ports, udp_ports, bind_interface, honeypot_ban_enabled, honeypot_autoaccept,log_message_alert,log_message_ban, exceptionlog
+from src.config import tcp_ports, udp_ports, bind_interface, honeypot_ban_enabled, honeypot_autoaccept, log_message_alert, log_message_ban, exceptionlog
 
 
-#@graph_project
-#
-#    
 class TCPServer((SocketServer.ThreadingTCPServer)):
     """
     defines a basic tcp server with threading
     """
-    def handle_error(request, client_address):
+    def handle_error(self, request, client_address):
         write_console(f"client {client_address} had an error {str(request)}")
-        
+
     request_queue_size = 10
-#
-#
+
+
 class UDPServer((SocketServer.ThreadingUDPServer)):
     """
     defines a basic udp server with threading
     """
     #
-    def handle_error(request, client_address):
+    def handle_error(self, request, client_address):
         write_console(f"client {client_address} had an error {str(request)}")
-    #    
+
     request_queue_size = 10
-#
-#
+
+
 class UDPSocket((SocketServer.BaseRequestHandler)):
-    '''creates a udp socket. all methods run in order setup(1),handle(2),finish(3).
+    '''creates a udp socket. all methods run in order setup(1), handle(2), finish(3).
     '''
     #
     def handle(self):
@@ -53,7 +49,7 @@ class UDPSocket((SocketServer.BaseRequestHandler)):
         skt = self.request[1]
         print(f"Data recieved: {data}")
         #skt.sendto(self.fake_string ,self.client_address)
-    #
+
     def setup(self):
         '''checks to see if ip is valid and not on whitelist.
         Gets some initial info about attacker and alerts
@@ -61,22 +57,22 @@ class UDPSocket((SocketServer.BaseRequestHandler)):
         # fake_string = random number between 5 and 30,000 then os.urandom the
         # command back
         self.random_length_number = random.randint(5, 30000)
-        self.fake_string = os.urandom(int(self.radom_length_number))
+        self.fake_string = os.urandom(int(self.random_length_number))
 
-    
         ip = str(self.client_address[0])
         if is_valid_ipv4(ip):
             if not is_whitelisted_ip(ip):
                 #srv_ip = str(self.server.server_address[0])
                 srv_port = str(self.server.server_address[1])
                 write_console(f"connection from {ip} on udp port {srv_port}")
-    #
+
     def finish(self):
         '''Maybe get even more stuff and then
         get that mofo outta here and perform cleanup'''
         #print("gonna ban em")
         return
-#
+
+
 class TCPSocket((SocketServer.BaseRequestHandler)):
     '''creates a tcp socket. all methods run in order setup(1),handle(2),finish(3).
     for now handle and finish do nothing'''
@@ -89,8 +85,7 @@ class TCPSocket((SocketServer.BaseRequestHandler)):
         #except Exception as e:
         #    write_console("Unable to send data to %s:%s" % (self.ip, str(self.server.server_address[1])))
         pass
-    #
-    #
+
     def setup(self):
         """
             checks to see if ip is valid and not on whitelist.
@@ -129,7 +124,7 @@ class TCPSocket((SocketServer.BaseRequestHandler)):
                     alert = message
                     if "%" in message:
                         nrvars = message.count("%")
-                        if nrvars  == 1:
+                        if nrvars == 1:
                             alert = message % (now)
                         elif nrvars == 2:
                             alert = message % (now, self.ip)
@@ -152,20 +147,20 @@ class TCPSocket((SocketServer.BaseRequestHandler)):
             emsg = traceback.format_exc()
             write_console(f"[!] Error detected. Printing: {str(e)}")
             write_console(emsg)
-            write_log(emsg,2)
+            write_log(emsg, 2)
             #log_exception(f"[!] Error detected. Printing: {str(e)}")
-            print("")
-    #
+            #print("")
+
     def finish(self):
         pass
         # get that mofo outta here and perform cleanup
         # close the socket
         #try:
-         #   self.request.close()
+        #   self.request.close()
         #except:
-        #
-        
+
         return
+
 
 def open_sesame(porttype, port):
     """
@@ -183,16 +178,17 @@ def open_sesame(porttype, port):
 #
 #this is a temporary function to handle errors from check_open_port()
 #will be removed in future
+
+
 def log_exception(exception):
     """
     logs all server exceptions to artillery exceptions.log file
     """
     with open(exceptionlog, "a") as event:
-        event.write(str(exception)+"\n")
+        event.write(str(exception) + "\n")
 
-#
-#
-def check_open_port(port,port_type,bind_interface):
+
+def check_open_port(port, port_type, bind_interface):
     '''attempts to see if ports are open on local host.
         retuns True if open. False if closed '''
     if port_type == "TCP":
@@ -209,11 +205,11 @@ def check_open_port(port,port_type,bind_interface):
         #print(f"{port_type}: {port} is closed")
         log_exception(f"{port_type} port: {port} creation failed with: {str(e)}. Please check the config file and make sure the port is not in use")
         result = False
-    # 
+
     sock.close()
     return result
-#
-# here we define a basic server
+
+
 def listentcp_server(tcpport, bind_interface):
     '''Creates a basic TCP server based on TCPServer and TCPSocket classes'''
     if not tcpport == "":
@@ -228,8 +224,8 @@ def listentcp_server(tcpport, bind_interface):
             server = TCPServer((bind_interface, port), TCPSocket)
         open_sesame("tcp", port)
         server.serve_forever()
-#
-#
+
+
 def listenudp_server(udpport, bind_interface):
     '''Creates a basic UDP server based on UDPServer and UDPSocket classes'''
     if not udpport == "":
@@ -242,8 +238,8 @@ def listenudp_server(udpport, bind_interface):
             server = UDPServer((bind_interface, port), UDPSocket)
         open_sesame("udp", port)
         server.serve_forever()
-#
-#
+
+
 def main(tcpports, udpports, bind_interface):
     """
         main function that creates all servers from classes above.
@@ -258,11 +254,11 @@ def main(tcpports, udpports, bind_interface):
     closed_udp = []
     tports = tcpports.split(",")
     for tport in tports:
-        tport = tport.replace(" ","")
+        tport = tport.replace(" ", "")
         #if the ports not blank
         if tport != "":
             #check to see if port is in use
-            port_availible = check_open_port(tport,"TCP",bind_interface)
+            port_availible = check_open_port(tport, "TCP", bind_interface)
             if port_availible is True:
                 open_tcp.append(tport)
                 #write_log(f"[*] Set up listener for tcp port {tport}")
@@ -270,25 +266,25 @@ def main(tcpports, udpports, bind_interface):
                 #thread.start_new_thread(sniffer, (host,bind_interface,'TCP',tport))
                 thread.start_new_thread(listentcp_server, (tport, bind_interface,))
             else:
-                closed_tcp.append(tport)     
+                closed_tcp.append(tport)
     #
     # split into tuple
     uports = udpports.split(",")
     for uport in uports:
-        uport = uport.replace(" ","")
+        uport = uport.replace(" ", "")
         if uport != "":
             #check to see if port is in use
-            port_availible = check_open_port(uport,"UDP",bind_interface)
+            port_availible = check_open_port(uport, "UDP", bind_interface)
             if port_availible is True:
                 open_udp.append(uport)
                 #write_log(f"[*] Set up listener for udp port {uport}")
                 time.sleep(.5)
-                #thread.start_new_thread(sniffer, (host,bind_interface,'TCP',tport))
+                #thread.start_new_thread(sniffer, (host,bind_interface,'TCP', tport))
                 thread.start_new_thread(listenudp_server, (uport, bind_interface,))
             else:
                 closed_udp.append(uport)
     #
-    #check to see if some ports were open/closed 
+    #check to see if some ports were open/closed
     # during startup and report if so
     tcp_bind_success = False
     udp_bind_success = False
@@ -321,7 +317,7 @@ def main(tcpports, udpports, bind_interface):
     if tcp_bind_error or udp_bind_error is True:
         subject = " Artillery error - Unable to bind to some ports"
         if tcp_bind_error and udp_bind_error is True:
-            bind_error = f"Artillery was unable to bind to {str(failed_tcp)} TCP port/ports: {str(closed_tcp)}.{str(failed_udp)} UDP port/ports: {str(closed_udp)} This could be due to an active port in use."    
+            bind_error = f"Artillery was unable to bind to {str(failed_tcp)} TCP port/ports: {str(closed_tcp)}.{str(failed_udp)} UDP port/ports: {str(closed_udp)} This could be due to an active port in use."
         if tcp_bind_error is True and udp_bind_error is False:
             bind_error = f"Artillery was unable to bind to {str(failed_tcp)} TCP port/ports: {str(closed_tcp)}. This could be due to an active port in use."
         if tcp_bind_error is False and udp_bind_error is True:
@@ -329,7 +325,7 @@ def main(tcpports, udpports, bind_interface):
         write_log(f"{bind_error}", 2)
         warn_the_good_guys(subject, bind_error)
         #clear exception log
-        with open(exceptionlog,"r+") as log:
+        with open(exceptionlog, "r+") as log:
             log.truncate(0)
     if tcp_bind_success or udp_bind_success is True:
         subject = "Set up listener on some ports"
@@ -340,13 +336,13 @@ def main(tcpports, udpports, bind_interface):
         if tcp_bind_success is False and udp_bind_success is True:
             message = f"{subject} Opened {str(success_udp)} UDP Ports."
         write_log(f"{message}", 0)
-        write_log(f"TCP ports: {str(open_tcp)}",0)
-        write_log(f"UDP ports: {str(open_udp)}",0)
+        write_log(f"TCP ports: {str(open_tcp)}", 0)
+        write_log(f"UDP ports: {str(open_udp)}", 0)
         if is_posix():
-            write_log(f"Created {success_tcp+success_udp} iptables rules to accept incoming connections",0)
+            write_log(f"Created {success_tcp+success_udp} iptables rules to accept incoming connections", 0)
         #write_console(f"Created iptables rule to accept incoming connection for {success_tcp+success_udp} ports")
 
-# launch the server
+
 def start_honeypot():
     """
     starts main honeypot fuction

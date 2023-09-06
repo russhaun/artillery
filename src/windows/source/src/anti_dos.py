@@ -5,8 +5,8 @@
 import subprocess
 from src.core import write_console
 from src.config import anti_dos_ports, anti_dos_burst_limit, anti_dos_throttle_connections, is_posix_os
-#
-#      
+
+
 def start_anti_dos():
     if is_posix_os is True:
         write_console("[*] Activating anti DoS.")
