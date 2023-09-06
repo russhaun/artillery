@@ -24,7 +24,11 @@ See L{runAsAdmin} for the main interface.
 
 """
 
-import sys, os, traceback, types
+import sys
+import os
+import traceback
+import types
+
 
 def isUserAdmin():
     """@return: True if the current user is an 'Admin' whatever that
@@ -34,7 +38,7 @@ def isUserAdmin():
     higher. The failure causes a traceback to be printed and this
     function to return False.
     """
-    
+
     if os.name == 'nt':
         import ctypes
         # WARNING: requires Windows XP SP2 or higher!
@@ -42,11 +46,12 @@ def isUserAdmin():
             return ctypes.windll.shell32.IsUserAnAdmin()
         except:
             traceback.print_exc()
-            print ("Admin check failed, assuming not an admin.")
+            print("Admin check failed, assuming not an admin.")
             return False
     else:
         # Check for root on Posix
         return os.getuid() == 0
+
 
 def runAsAdmin(cmdLine=None, wait=False):
     """Attempt to relaunch the current script as an admin using the same
@@ -67,15 +72,18 @@ def runAsAdmin(cmdLine=None, wait=False):
         #raise RuntimeError, ("This function is only implemented on Windows.")
         #print("This function is only implemented on Windows.")
         raise RuntimeError("This function is only implemented on Windows.")
-    import win32api, win32con, win32event, win32process
+    import win32api
+    import win32con
+    import win32event
+    import win32process
     from win32com.shell.shell import ShellExecuteEx
     from win32com.shell import shellcon
-    
+
     python_exe = sys.executable
 
     if cmdLine is None:
         cmdLine = [python_exe] + sys.argv
-    elif type(cmdLine) not in (types.TupleType,types.ListType):
+    elif type(cmdLine) not in (types.TupleType, types.ListType):
         raise ValueError("cmdLine is not a sequence.")
     cmd = '"%s"' % (cmdLine[0],)
     # XXX TODO: isn't there a function or something we can call to massage command line params?
@@ -83,7 +91,7 @@ def runAsAdmin(cmdLine=None, wait=False):
     cmdDir = ''
     showCmd = win32con.SW_SHOWNORMAL
     lpVerb = 'runas'  # causes UAC elevation prompt.
-    
+
     # print "Running", cmd, params
 
     # ShellExecute() doesn't seem to allow us to fetch the PID or handle
@@ -97,9 +105,9 @@ def runAsAdmin(cmdLine=None, wait=False):
                               lpVerb=lpVerb,
                               lpFile=cmd,
                               lpParameters=params)
-    
+
     if wait:
-        procHandle = procInfo['hProcess']    
+        procHandle = procInfo['hProcess']
         obj = win32event.WaitForSingleObject(procHandle, win32event.INFINITE)
         rc = win32process.GetExitCodeProcess(procHandle)
         #print "Process handle %s returned code %s" % (procHandle, rc)
@@ -108,6 +116,7 @@ def runAsAdmin(cmdLine=None, wait=False):
 
     return rc
     sys.exit()
+
 
 def test():
     """A simple test function; check if we're admin, and if not relaunch
@@ -120,7 +129,7 @@ def test():
     else:
         print("You are an admin!"), os.getpid(), "params: ", sys.argv
         rc = 0
-    x = raw_input('Press Enter to exit.')
+    x = input('Press Enter to exit.')
     return rc
 
 

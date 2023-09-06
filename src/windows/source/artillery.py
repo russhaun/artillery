@@ -8,23 +8,22 @@
 #
 ################################################################################
 #
-from src.config import configfile, email_enabled, alertlog, banlist, check_config, appname, apppath, is_windows_os, is_posix_os, file_monitor_enabled, recycle_ips_enabled,threat_server_enabled, auto_update_enabled, anti_dos_enabled, honeypot_enabled, ssh_brute_monitor_enabled, source_feeds_enabled, harden_check, ftp_brute_monitor_enabled, threat_feed_enabled,apache_monitor_enabled
+import signal
+import time
+import sys
+import os
+import _thread as thread
+from src.config import configfile, email_enabled, alertlog, banlist, check_config, appname, apppath, is_windows_os, is_posix_os, file_monitor_enabled, recycle_ips_enabled, threat_server_enabled, auto_update_enabled, anti_dos_enabled, honeypot_enabled, ssh_brute_monitor_enabled, source_feeds_enabled, harden_check, ftp_brute_monitor_enabled, threat_feed_enabled, apache_monitor_enabled
 from src.pyuac import isUserAdmin, runAsAdmin
-from src.core import signal, time, sys, thread, os, write_console, write_log, globals, check_banlist_path, create_iptables_subset, update, pull_source_feeds, refresh_log, threat_server
-from src.honeypot import start_honeypot
-from src.anti_dos import start_anti_dos
-from src.apache_monitor import start_apache_log_monitor
-from src.harden import hardening_checks
-from src.ssh_monitor import start_ssh_monitor
-from src.ftp_monitor import start_ftp_monitor
-from src.monitor import start_monitor
-from src.email_handler import start_email_handler
+from src.core import write_console, write_log, globals, check_banlist_path, create_iptables_subset, update, pull_source_feeds, refresh_log, threat_server
+
 #
 if is_windows_os is True:
     from src.win_func import get_pid, get_title, get_os, current_version, freeze_check
-    from src.monitor import watch_folders
     from src.event_log import write_windows_eventlog, info
 #################################################################################
+
+
 class MainWindow():
     """
         Main Class file for handling gathering of all options avalible to artillery
@@ -66,15 +65,13 @@ class MainWindow():
                 filewrite.close()
         #
         self.load_services_as_thread()
-    #
-    #
+
     def kill_running_threads():
         """
         kills all running threads. used during shutdown to clean up active threads.
         """
         print("hey")
-    #
-    #
+
     def shutdown(self):
         """calls sys.exit() and closes software"""
         write_console("[!] Ctrl-C Detected! Closing down")
@@ -82,14 +79,14 @@ class MainWindow():
         write_console("[!] Exiting Artillery... hack the gibson.")
         time.sleep(5)
         sys.exit()
-    #
+
     def load_services_as_thread(self):
         """
         Starts load_services() in a thread.
         """
-        loadid = thread.start_new_thread(self.load_services,())
+        loadid = thread.start_new_thread(self.load_services, ())
         self.running_threads.append(loadid)
-    #
+
     def load_services(self) -> None:
         """
             Loads all availible services depending on config returned
@@ -111,35 +108,43 @@ class MainWindow():
         #
         # start anti_dos
         if anti_dos_enabled is True:
-            thread.start_new_thread(start_anti_dos,())
+            from src.anti_dos import start_anti_dos
+            thread.start_new_thread(start_anti_dos, ())
         #
         # spawn honeypot
         if honeypot_enabled is True:
-            thread.start_new_thread(start_honeypot,())
+            from src.honeypot import start_honeypot
+            thread.start_new_thread(start_honeypot, ())
         #
         #start ssh monitor
         if ssh_brute_monitor_enabled is True:
-            thread.start_new_thread(start_ssh_monitor,())
+            from src.ssh_monitor import start_ssh_monitor
+            thread.start_new_thread(start_ssh_monitor, ())
         #
         #start ftp monitor
         if ftp_brute_monitor_enabled is True:
-            thread.start_new_thread(start_ftp_monitor,())
+            from src.ftp_monitor import start_ftp_monitor
+            thread.start_new_thread(start_ftp_monitor, ())
         #
         #start monitor engine
         if file_monitor_enabled is True:
             if is_posix_os is True:
+                from src.monitor import start_monitor
                 thread.start_new_thread(start_monitor, ())
             #
             if is_windows_os is True:
+                from src.monitor import watch_folders
                 thread.start_new_thread(watch_folders, ())
         #
         # check system hardening
         if harden_check is True:
-            thread.start_new_thread(hardening_checks,())
+            from src.harden import hardening_checks
+            thread.start_new_thread(hardening_checks, ())
         #
         # start the email handler
         if email_enabled is True:
-            thread.start_new_thread(start_email_handler,())
+            from src.email_handler import start_email_handler
+            thread.start_new_thread(start_email_handler, ())
         #
         # check to see if we are a threat server or not
         if threat_server_enabled is True:
@@ -151,7 +156,8 @@ class MainWindow():
         #
         # start apache monitor
         if apache_monitor_enabled is True:
-            thread.start_new_thread(start_apache_log_monitor,())
+            from src.apache_monitor import start_apache_log_monitor
+            thread.start_new_thread(start_apache_log_monitor, ())
         #
         # pull additional source feeds from external parties other than artillery
         if threat_feed_enabled or source_feeds_enabled is True:
@@ -161,9 +167,11 @@ class MainWindow():
         write_console("[*] Console logging enabled. \n[*] Use Ctrl+C to exit.")
         write_log("[*] Artillery has started")
         if is_windows_os is True:
-            write_windows_eventlog('Artillery', 100, info , True, None)
+            write_windows_eventlog('Artillery', 100, info, False, None)
         #
+        #print(self.running_threads)
         return
+
 
 def master_timer():
     """This function sleeps for the max that time.sleep() allows in a loop
@@ -186,8 +194,9 @@ def master_timer():
     while current_count is not count_max:
         current_count += 1
         time.sleep(timer[0])
-#
-def admin_check(app: str)->None:
+
+
+def admin_check(app: str) -> None:
     """
         Used with Mainwindow class. admin/root check for windows/linux platforms.
     takes app as string to use for calling app.run() if admin is True
@@ -201,7 +210,7 @@ def admin_check(app: str)->None:
 #
     if is_posix_os is True:
         # Check to see if we are root
-        try: #try and delete folder
+        try:  # try and delete folder
             if os.path.isdir("/var/artillery_check_root"):
                 os.rmdir('/var/artillery_check_root')
         #if not thow error and quit
@@ -212,13 +221,12 @@ def admin_check(app: str)->None:
         else:
             #if root run app
             app.run()
-#
-#
-if __name__ =="__main__":
+
+
+if __name__ == "__main__":
     RUNNING = True
-    #
-    #
-    def sig_handler(signum,frame):
+
+    def sig_handler(signum, frame):
         """
         handles ctrl-c events to exit software.
         """
@@ -226,7 +234,7 @@ if __name__ =="__main__":
         RUNNING = False
         app.shutdown()
     #
-    #define signal to catch ctrl-c events
+    #define signal to catch ctrl-c event
     signal.signal(signal.SIGINT, sig_handler)
     #
     while RUNNING:

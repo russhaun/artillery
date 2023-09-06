@@ -1,17 +1,17 @@
 ###### Building project 
 #requirements:
 - win10toast
-- pywin32 v300
+- pywin32 v302
 - pyinstaller 5.3
-- python 3.8.10(python install)
-- win10 sdk 19041
+- python 3.10(python install)
+- win10 sdk 19045
 - Lotta coffee
 
   Note:
     the library win10toast is a custom one and different from the one on pip.please use this repo to install. https://github.com/russhaun/Windows-10-Toast-Notifications .This repo adds callbacks to class.with more planned
 
   Also:
-    version of pywin32 is capped(for now @ 300) use binary installer from here. https://github.com/mhammond/pywin32/releases/tag/b300 . install appropriate version for your platform ex: 32/64 bit
+    version of pywin32 is capped(for now @ 302) use binary installer from here. https://github.com/mhammond/pywin32/releases/tag/b302 . install appropriate version for your platform ex: 32/64 bit
 
   navigate to windows folder of extacted repo. you will see a folder called "source" copy this folder to a place of your choosing rename if you wish.open a cmd prompt in this new location  and execute "pyinstaller artillery.spec" (without quotes)  when complete files will be located in "finalbuild" folder, this folder is created during build.this includes any src code as well. this project self replicates src\compiled binaries to finalbuild folder will improve as time goes on.
   

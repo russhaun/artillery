@@ -11,24 +11,16 @@ import subprocess
 import re
 import os
 import sys
-#sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-#import threading
-#import datetime
 import time
 from win32evtlogutil import RemoveSourceFromRegistry
 from win32api import SetConsoleTitle, GetCurrentProcessId
-#import win32gui
 from win32security import GetTokenInformation, TokenUser, OpenProcessToken
 import win32file
 import win32con
-#from win32con import TOKEN_READ
-#import win32evtlog
 from .event_log import write_windows_eventlog , err , warning, info
-#from .events import SmbClientEnabled, SmbServerEnabled, SmbHelp, WpadEnabled, LLMNREnabled
 from . import globals
 from .core import write_log, write_console, is_windows, is_posix, init_globals
 from src.config import read_config
-#from zipfile import ZipFile
 import requests
 #import random
 import platform
@@ -52,12 +44,12 @@ if is_posix():
 def get_config(cfg):
     '''get various pre-set config options used throughout script'''
     #Current artillery version
-    current = ['2.9']
+    current = ['2.9.1']
     #Known Os versions
     oslst = ['Windows 7 Pro', 'Windows Server 2008 R2 Standard', 'Windows 8.1 Pro', 'Windows 10 Pro', 'Windows Small Business Server 2011 Essentials',
              'Windows Server 2012 R2 Essentials', 'Hyper-V Server 2012 R2','Windows Server 2016 Standard', 'Windows Server 2016 Essentials']
     #Known Build numbers
-    builds = ['7601', '9600', '1709', '17134', '18362', '19041', '19042','19043','14393','19044']
+    builds = ['7601', '9600', '1709', '17134', '18362', '19041', '19042','19043','14393','19044','19045']
     regkeys = [r'SOFTWARE\Microsoft\Windows NT\CurrentVersion', r'SYSTEM\CurrentControlSet\Services\LanmanServer', r'SYSTEM\CurrentControlSet\Services\LanmanWorkstation',
                r'SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc',
                r'SOFTWARE\Policies\Microsoft\Windows NT\DNSClient']

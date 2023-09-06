@@ -2,6 +2,19 @@
 # Changes list
 
 ######################
+version 2.9.1        9/5/23
+######################
+
+* updated windows src files from issue#66
+* updated Winsdk to 19045
+* updated pyinstaller to 5.7
+* updated python ver to 3.10
+* updated pywin32 libs to ver #302
+* bumped minor ver of artillery to 2.9.1
+* fixed issue with toast alert not showing icon properly
+* added 19045 to known versions for windows 10
+
+######################
 version 2.9          8/19/22
 ######################
 

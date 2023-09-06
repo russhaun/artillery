@@ -1,31 +1,40 @@
 #
 #
-# config module for configuration reading/writing/translating
-#
 # import libs needed from core.py
 #from src.core import *
 import re
 import os
 import sys
 import socket
-from src.core import  write_console, write_log, globals
+#from src.core import  write_console, write_log, globals
 from pathlib import PureWindowsPath, PurePosixPath
 
+
 def is_posix():
+    """
+    returns true if posix platform
+    """
     if ('linux' or 'linux2' or 'darwin') in sys.platform:
         #print(sys.platform)
         return True
     else:
         return False
-#
+
+
 def is_windows():
+    """
+    returns true if windows platform
+    """
     if 'win32' in sys.platform:
         return True
     else:
         return False
+
+
 is_windows_os = is_windows()
-is_posix_os = is_posix()  
-#
+is_posix_os = is_posix()
+
+
 def config_exists(param):
     '''check if a certain config parameter exists in the current config file'''
     path = get_config_path()
@@ -37,12 +46,14 @@ def config_exists(param):
             if match:
                 paramfound = True
     return paramfound
-#
+
+
 def get_config_path():
     '''grabs current config file location and returns path'''
-    path = globals.g_configfile
+    path = configfile
     return path
-#
+
+
 def read_config(param):
     '''reads config for specific value and returns it'''
     #if is_posix():
@@ -56,7 +67,8 @@ def read_config(param):
                 line = line.replace('"', "")
                 line = line.split("=")
                 return line[1]
-#
+
+
 def is_config_enabled(param):
     """
     checks to see if a paticular config option is enabled or not and returns it
@@ -66,37 +78,38 @@ def is_config_enabled(param):
         return config in ("on", "yes")
     except AttributeError:
         return "off"
-#
-def check_config()-> None:
+
+
+def check_config() -> None:
     '''Sane default settings built out into a dict to be used during config creation/updating'''
     configdefaults = {}
     configdefaults["MONITOR"] = ["OFF", "DETERMINE IF YOU WANT TO MONITOR OR NOT"]
     if is_posix():
-        configdefaults["MONITOR_FOLDERS"] = ["\"/var/www\",\"/etc/\"",  "THESE ARE THE FOLDERS TO MONITOR, TO ADD MORE, JUST DO \"/root\",\"/var/\", etc."]
+        configdefaults["MONITOR_FOLDERS"] = ["\"/var/www\",\"/etc/\"", "THESE ARE THE FOLDERS TO MONITOR, TO ADD MORE, JUST DO \"/root\",\"/var/\", etc."]
     if is_windows_os is True:
-        configdefaults["MONITOR_FOLDERS"] = ["c:\\temp"", ""c:\\windows\\temp",  "THESE ARE THE FOLDERS TO MONITOR, TO ADD MORE, JUST DO ""c:\\path,c:\\other\\path, etc."]
+        configdefaults["MONITOR_FOLDERS"] = ["c:\\temp"", ""c:\\windows\\temp", "THESE ARE THE FOLDERS TO MONITOR, TO ADD MORE, JUST DO ""c:\\path,c:\\other\\path, etc."]
     configdefaults["MONITOR_FREQUENCY"] = ["60", "BASED ON SECONDS, 2 = 2 seconds."]
     configdefaults["SYSTEM_HARDENING"] = ["OFF", "PERFORM CERTAIN SYSTEM HARDENING CHECKS"]
     configdefaults["SSH_DEFAULT_PORT_CHECK"] = ["ON", "CHECK/WARN IF SSH IS RUNNING ON PORT 22"]
-    configdefaults["EXCLUDE"] = ["","EXCLUDE CERTAIN DIRECTORIES OR FILES. USE FOR EXAMPLE: /etc/passwd,/etc/hosts.allow"]
+    configdefaults["EXCLUDE"] = ["", "EXCLUDE CERTAIN DIRECTORIES OR FILES. USE FOR EXAMPLE: /etc/passwd,/etc/hosts.allow"]
     configdefaults["ENABLE_HONEYPOT"] = ["OFF", "TURN ON HONEYPOT"]
     configdefaults["HONEYPOT_BAN"] = ["OFF", "DO YOU WANT TO AUTOMATICALLY BAN ON THE HONEYPOT"]
-    configdefaults["HONEYPOT_BAN_CLASSC"] = ["OFF","WHEN BANNING, DO YOU WANT TO BAN ENTIRE CLASS C AT ONCE INSTEAD OF INDIVIDUAL IP ADDRESS"]
-    configdefaults["HONEYPOT_BAN_LOG_PREFIX"] = ["","PUT A PREFIX ON ALL BANNED IP ADDRESSES. HELPFUL FOR WHEN TRYING TO PARSE OR SHOW DETECTIONS THAT YOU ARE PIPING OFF TO OTHER SYSTEMS. WHEN SET, PREFIX IPTABLES LOG ENTRIES WITH THE PROVIDED TEXT"]
+    configdefaults["HONEYPOT_BAN_CLASSC"] = ["OFF", "WHEN BANNING, DO YOU WANT TO BAN ENTIRE CLASS C AT ONCE INSTEAD OF INDIVIDUAL IP ADDRESS"]
+    configdefaults["HONEYPOT_BAN_LOG_PREFIX"] = ["", "PUT A PREFIX ON ALL BANNED IP ADDRESSES. HELPFUL FOR WHEN TRYING TO PARSE OR SHOW DETECTIONS THAT YOU ARE PIPING OFF TO OTHER SYSTEMS. WHEN SET, PREFIX IPTABLES LOG ENTRIES WITH THE PROVIDED TEXT"]
     configdefaults["WHITELIST_IP"] = ["127.0.0.1,localhost", "WHITELIST IP ADDRESSES, SPECIFY BY COMMAS ON WHAT IP ADDRESSES YOU WANT TO WHITELIST"]
-    configdefaults["TCPPORTS"] = ["22,1433,8080,21,5060,5061,5900,25,110,1723,1337,10000,5800,44443,16993","TCP PORTS TO SPAWN HONEYPOT FOR"]
+    configdefaults["TCPPORTS"] = ["22,1433,8080,21,5060,5061,5900,25,110,1723,1337,10000,5800,44443,16993", "TCP PORTS TO SPAWN HONEYPOT FOR"]
     configdefaults["UDPPORTS"] = ["5060,5061,3478", "UDP PORTS TO SPAWN HONEYPOT FOR"]
     configdefaults["HONEYPOT_AUTOACCEPT"] = ["ON", "SHOULD THE HONEYPOT AUTOMATICALLY ADD ACCEPT RULES TO THE ARTILLERY CHAIN FOR ANY PORTS ITS LISTENING ON"]
-    configdefaults["EMAIL_ALERTS"] = ["OFF","SHOULD EMAIL ALERTS BE SENT"]
-    configdefaults["SMTP_USERNAME"] = ["","CURRENT SUPPORT IS FOR SMTP. ENTER YOUR USERNAME AND PASSWORD HERE FOR STARTTLS AUTHENTICATION. LEAVE BLANK FOR OPEN RELAY"]
-    configdefaults["SMTP_PASSWORD"] = ["","ENTER SMTP PASSWORD HERE"]
+    configdefaults["EMAIL_ALERTS"] = ["OFF", "SHOULD EMAIL ALERTS BE SENT"]
+    configdefaults["SMTP_USERNAME"] = ["", "CURRENT SUPPORT IS FOR SMTP. ENTER YOUR USERNAME AND PASSWORD HERE FOR STARTTLS AUTHENTICATION. LEAVE BLANK FOR OPEN RELAY"]
+    configdefaults["SMTP_PASSWORD"] = ["", "ENTER SMTP PASSWORD HERE"]
     configdefaults["2FA_PASS"] = ["", "2-FACTOR PASSWORD GOES HERE. IF ENABLED ON YOUR EMAIL ACCT. IF NOT IT SHOULD BE. THIS ASSUMES GOOGLE EMAIL"]
     configdefaults["ENABLE_2FA"] = ["OFF", " ENABLE 2-FACTOR AUTH. MUST RETRIEVE INDIVIDUAL PASS FROM GOOGLE ACCT FOR THIS INSTANCE. "]
-    configdefaults["ALERT_USER_EMAIL"] = ["enter_your_email_address_here@localhost","THIS IS WHO TO SEND THE ALERTS TO - EMAILS WILL BE SENT FROM ARTILLERY TO THIS ADDRESS"]
-    configdefaults["SMTP_FROM"] = ["Artillery_Incident@localhost","FOR SMTP ONLY HERE, THIS IS THE MAILTO"]
-    configdefaults["SMTP_ADDRESS"] = ["smtp.gmail.com","SMTP ADDRESS FOR SENDING EMAIL, DEFAULT IS GMAIL"]
-    configdefaults["SMTP_PORT"] = ["587","SMTP PORT FOR SENDING EMAILS DEFAULT IS GMAIL WITH STARTTLS"]
-    configdefaults["EMAIL_TIMER"] = ["ON","THIS WILL SEND EMAILS OUT DURING A CERTAIN FREQUENCY. IF THIS IS SET TO OFF, ALERTS WILL BE SENT IMMEDIATELY (CAN LEAD TO A LOT OF SPAM)"]
+    configdefaults["ALERT_USER_EMAIL"] = ["enter_your_email_address_here@localhost", "THIS IS WHO TO SEND THE ALERTS TO - EMAILS WILL BE SENT FROM ARTILLERY TO THIS ADDRESS"]
+    configdefaults["SMTP_FROM"] = ["Artillery_Incident@localhost", "FOR SMTP ONLY HERE, THIS IS THE MAILTO"]
+    configdefaults["SMTP_ADDRESS"] = ["smtp.gmail.com", "SMTP ADDRESS FOR SENDING EMAIL, DEFAULT IS GMAIL"]
+    configdefaults["SMTP_PORT"] = ["587", "SMTP PORT FOR SENDING EMAILS DEFAULT IS GMAIL WITH STARTTLS"]
+    configdefaults["EMAIL_TIMER"] = ["ON", "THIS WILL SEND EMAILS OUT DURING A CERTAIN FREQUENCY. IF THIS IS SET TO OFF, ALERTS WILL BE SENT IMMEDIATELY (CAN LEAD TO A LOT OF SPAM)"]
     configdefaults["EMAIL_FREQUENCY"] = ["600", "HOW OFTEN DO YOU WANT TO SEND EMAIL ALERTS (DEFAULT 10 MINUTES) - IN SECONDS"]
     configdefaults["SSH_BRUTE_MONITOR"] = ["ON", "DO YOU WANT TO MONITOR SSH BRUTE FORCE ATTEMPTS"]
     configdefaults["SSH_BRUTE_ATTEMPTS"] = ["4", "HOW MANY ATTEMPTS BEFORE YOU BAN"]
@@ -113,19 +126,21 @@ def check_config()-> None:
     configdefaults["APACHE_MONITOR"] = ["OFF", "MONITOR LOGS ON AN APACHE SERVER"]
     configdefaults["ACCESS_LOG"] = ["/var/log/apache2/access.log", "THIS IS THE PATH FOR THE APACHE ACCESS LOG"]
     configdefaults["ERROR_LOG"] = ["/var/log/apache2/error.log", "THIS IS THE PATH FOR THE APACHE ERROR LOG"]
-    configdefaults["BIND_INTERFACE"] = ["","THIS ALLOWS YOU TO SPECIFY AN IP ADDRESS. LEAVE THIS BLANK TO BIND TO ALL INTERFACES."]
+    configdefaults["BIND_INTERFACE"] = ["", "THIS ALLOWS YOU TO SPECIFY AN IP ADDRESS. LEAVE THIS BLANK TO BIND TO ALL INTERFACES."]
     configdefaults["THREAT_INTELLIGENCE_FEED"] = ["ON", "TURN ON INTELLIGENCE FEED, CALL TO https://www.binarydefense.com/banlist.txt IN ORDER TO GET ALREADY KNOWN MALICIOUS IP ADDRESSES. WILL PULL EVERY 24 HOURS"]
-    configdefaults["THREAT_FEED"] = ["https://www.binarydefense.com/banlist.txt","CONFIGURE THIS TO BE WHATEVER THREAT FEED YOU WANT BY DEFAULT IT WILL USE BINARY DEFENSE - NOTE YOU CAN SPECIFY MULTIPLE THREAT FEEDS BY DOING #http://urlthreatfeed1,http://urlthreadfeed2"]
+    configdefaults["THREAT_FEED"] = ["https://www.binarydefense.com/banlist.txt", "CONFIGURE THIS TO BE WHATEVER THREAT FEED YOU WANT BY DEFAULT IT WILL USE BINARY DEFENSE - NOTE YOU CAN SPECIFY MULTIPLE THREAT FEEDS BY DOING #http://urlthreatfeed1,http://urlthreadfeed2"]
     configdefaults["THREAT_SERVER"] = ["OFF", "A THREAT SERVER IS A SERVER THAT WILL COPY THE BANLIST.TXT TO A PUBLIC HTTP LOCATION TO BE PULLED BY OTHER ARTILLERY SERVER. THIS IS USED IF YOU DO NOT WANT TO USE THE STANDARD BINARY DEFENSE ONE."]
-    configdefaults["THREAT_LOCATION"] = ["/var/www/","PUBLIC LOCATION TO PULL VIA HTTP ON THE THREAT SERVER. NOTE THAT THREAT SERVER MUST BE SET TO ON"]
+    configdefaults["THREAT_LOCATION"] = ["/var/www/", "PUBLIC LOCATION TO PULL VIA HTTP ON THE THREAT SERVER. NOTE THAT THREAT SERVER MUST BE SET TO ON"]
+    configdefaults["THREAT_FILE"] = ["banlist.txt", "FILE TO COPY TO THREAT_LOCATION, TO ACT AS A THREAT_SERVER. CHANGE TO \"localbanlist.txt\" IF YOU HAVE ENABLED \"LOCAL_BANLIST\" AND WISH TO HOST YOUR LOCAL BANLIST. IF YOU WISH TO COPY BOTH FILES, SEPARATE THE FILES WITH A COMMA - f.i. \"banlist.txt,localbanlist.txt\""]
+    configdefaults["LOCAL_BANLIST"] = ["OFF", "CREATE A SEPARATE LOCAL BANLIST FILE (USEFUL IF YOU'RE ALSO USING A THREAT FEED AND WANT TO HAVE A FILE THAT CONTAINS THE IPs THAT HAVE BEEN BANNED LOCALLY"]
     configdefaults["ROOT_CHECK"] = ["ON", "THIS CHECKS TO SEE WHAT PERMISSIONS ARE RUNNING AS ROOT IN A SSH SERVER DIRECTORY"]
-    #if is_posix_os is True:
-     #   configdefaults["SYSLOG_TYPE"] = ["LOCAL", "Specify SYSLOG TYPE to be local, file or remote. LOCAL will pipe to syslog, REMOTE will pipe to remote SYSLOG, and file will send to alerts.log in local artillery directory"]
-    #if is_windows_os is True:
-    configdefaults["SYSLOG_TYPE"] = ["FILE", "Specify SYSLOG TYPE to be local, file or remote. LOCAL will pipe to syslog, REMOTE will pipe to remote SYSLOG, and file will send to alerts.log in local artillery directory"]
+    if is_posix_os is True:
+        configdefaults["SYSLOG_TYPE"] = ["LOCAL", "Specify SYSLOG TYPE to be local, file or remote. LOCAL will pipe to syslog, REMOTE will pipe to remote SYSLOG, and file will send to alerts.log in local artillery directory"]
+    if is_windows_os is True:
+        configdefaults["SYSLOG_TYPE"] = ["FILE", "Specify SYSLOG TYPE to be local, file or remote. LOCAL will pipe to syslog, REMOTE will pipe to remote SYSLOG, and file will send to alerts.log in local artillery directory"]
     configdefaults["LOG_MESSAGE_ALERT"] = ["Artillery has detected an attack from %ip% for a connection on a honeypot port %port%", "ALERT LOG MESSAGES (You can use the following variables: %time%, %ip%, %port%)"]
     configdefaults["LOG_MESSAGE_BAN"] = ["Artillery has blocked (and blacklisted) an attack from %ip% for a connection to a honeypot restricted port %port%", "BAN LOG MESSAGES (You can use the following variables: %time%, %ip%, %port%)"]
-    configdefaults["SYSLOG_REMOTE_HOST"] = ["192.168.0.1","IF YOU SPECIFY SYSLOG TYPE TO REMOTE, SPECIFY A REMOTE SYSLOG SERVER TO SEND ALERTS TO"]
+    configdefaults["SYSLOG_REMOTE_HOST"] = ["192.168.0.1", "IF YOU SPECIFY SYSLOG TYPE TO REMOTE, SPECIFY A REMOTE SYSLOG SERVER TO SEND ALERTS TO"]
     configdefaults["SYSLOG_REMOTE_PORT"] = ["514", "IF YOU SPECIFY SYSLOG TYPE OF REMOTE, SEPCIFY A REMOTE SYSLOG PORT TO SEND ALERTS TO"]
     configdefaults["CONSOLE_LOGGING"] = ["ON", "TURN ON CONSOLE LOGGING"]
     if is_posix():
@@ -137,8 +152,6 @@ def check_config()-> None:
         configdefaults["SOURCE_FEEDS"] = ["ON", "PULL ADDITIONAL SOURCE FEEDS FOR BANNED IP LISTS FROM MULTIPLE OTHER SOURCES OTHER THAN ARTILLERY"]
     if is_windows():
         configdefaults["SOURCE_FEEDS"] = ["OFF", "PULL ADDITIONAL SOURCE FEEDS FOR BANNED IP LISTS FROM MULTIPLE OTHER SOURCES OTHER THAN ARTILLERY"]
-    configdefaults["LOCAL_BANLIST"] = ["OFF", "CREATE A SEPARATE LOCAL BANLIST FILE (USEFUL IF YOU'RE ALSO USING A THREAT FEED AND WANT TO HAVE A FILE THAT CONTAINS THE IPs THAT HAVE BEEN BANNED LOCALLY"]
-    configdefaults["THREAT_FILE"] = ["banlist.txt", "FILE TO COPY TO THREAT_LOCATION, TO ACT AS A THREAT_SERVER. CHANGE TO \"localbanlist.txt\" IF YOU HAVE ENABLED \"LOCAL_BANLIST\" AND WISH TO HOST YOUR LOCAL BANLIST. IF YOU WISH TO COPY BOTH FILES, SEPARATE THE FILES WITH A COMMA - f.i. \"banlist.txt,localbanlist.txt\""]
 
     keyorder = []
     keyorder.append("MONITOR")
@@ -199,41 +212,42 @@ def check_config()-> None:
     keyorder.append("ARTILLERY_REFRESH")
     keyorder.append("SOURCE_FEEDS")
     for key in configdefaults:
-        if not key in keyorder:
+        if key not in keyorder:
             keyorder.append(key)
 
     # read config file
     createnew = False
-    configpath = get_config_path()
-    if os.path.isfile(configpath):
-         # read existing config file, update dict
-        write_console(f"[*] Checking existing config file {configpath}")
+    #configpath = get_config_path()
+    if os.path.isfile(configfile):
+        # read existing config file, update dict
+        #print(f"[*] Checking existing config file {configfile}")
         for configkey in configdefaults:
             if config_exists(configkey):
                 currentcomment = configdefaults[configkey][1]
                 currentvalue = read_config(configkey)
                 configdefaults[configkey] = [currentvalue, currentcomment]
             else:
-                write_console(f"[*] Adding new config options {configkey}, default value {configdefaults[configkey][0]}")
+                print(f"[*] Adding new config options {configkey}, default value {configdefaults[configkey][0]}")
     else:
         createnew = True
-       #config file does not exist, determine new path
+        #config file does not exist, determine new path
 
     # write dict to file
-    create_config(globals.g_configfile, configdefaults, keyorder)
+    create_config(configfile, configdefaults, keyorder)
 
     if createnew:
-        msg = "A brand new config file '%s' was created. Please review the file, change as needed, and launch artillery (again)." % globals.g_configfile
-        write_console(msg)
-        write_log(msg,1)
+        msg = f"A brand new config file {configfile} was created. Please review the file, change as needed, and launch artillery (again)."
+        #print(msg)
+        #write_log(msg,1)
 #
     return
-#
-def create_config(configpath, configdefaults, keyorder)->None:
+
+
+def create_config(configpath, configdefaults, keyorder) -> None:
     '''builds out config file with some sane defaults
         according to platform and writes it to a file'''
-    configpath = configpath
-    configfile = open(configpath, "w")
+    #configfilepath = configpath
+    confile = open(configpath, "w")
     #write_log("[*] Creating/updating config file '%s'" % configpath)
     #write_log("Creating config file %s" % (configpath))
     banner = "#############################################################################################\n"
@@ -249,37 +263,39 @@ def create_config(configpath, configdefaults, keyorder)->None:
     banner += "#\n"
     banner += "#############################################################################################\n"
     banner += "#\n"
-    configfile.write(banner)
+    confile.write(banner)
     for configkey in keyorder:
+        #newline_comment = f"\n# {configdefaults[configkey][1]}\n"
+        #newline_config = f"{configkey}=\"{configdefaults[configkey][0]}\"\n"
         newline_comment = "\n# %s\n" % configdefaults[configkey][1]
         newline_config = "%s=\"%s\"\n" % (configkey, configdefaults[configkey][0])
-        configfile.write(newline_comment)
-        configfile.write(newline_config)
-    configfile.close()
-    write_log("[*] Config file created '%s'" % configpath)
+        confile.write(newline_comment)
+        confile.write(newline_config)
+    confile.close()
+    #print(f"[*] Config file created {configpath}")
     return
 ######################################variable creation section################################################
-#we do a read of every setting availible and store for access
-# for use in app elsewhere. all values grabbed from config file 
-# that way it is run once and we just import setting returned and use
+
 #is_windows_os = is_windows()
 #is_posix_os = is_posix()
 ####################################Main settings config##########################################
+
+
 if is_windows_os is True:
     ProgramFolder = os.environ["PROGRAMFILES(X86)"]
     appname = "Artillery"
-    apppath = PureWindowsPath(ProgramFolder+"\\"+ appname)
-    appfile = PureWindowsPath(apppath,"artillery.exe")
+    apppath = PureWindowsPath(ProgramFolder + "\\" + appname)
+    appfile = PureWindowsPath(apppath, "artillery.exe")
     configfile = PureWindowsPath(apppath, "config")
-    banlist  = PureWindowsPath(apppath, "banlist.txt")
+    banlist = PureWindowsPath(apppath, "banlist.txt")
     localbanlist = PureWindowsPath(apppath, "localbanlist.txt")
-    win_src = PureWindowsPath(apppath ,"src\\windows")
+    win_src = PureWindowsPath(apppath, "src\\windows")
     eventdll = PureWindowsPath(win_src, "ArtilleryEvents.dll")
     logpath = PureWindowsPath(apppath, "logs")
     alertlog = PureWindowsPath(logpath, "alerts.log")
     exceptionlog = PureWindowsPath(logpath, "exceptions.log")
-    pidfile = PureWindowsPath(apppath,"pid.txt")
-    batchfile = PureWindowsPath(apppath,"artillery_start.bat")
+    pidfile = PureWindowsPath(apppath, "pid.txt")
+    batchfile = PureWindowsPath(apppath, "artillery_start.bat")
     iconpath = PureWindowsPath(apppath, "src\\icons")
     database = PureWindowsPath(apppath, "database\\temp.database")
     hostname = socket.gethostname()
@@ -290,9 +306,9 @@ if is_posix_os is True:
     ProgramFolder = "/var/artillery"
     appname = "Artillery"
     apppath = PurePosixPath(ProgramFolder)
-    appfile = PurePosixPath(apppath,"Artillery.py")
+    appfile = PurePosixPath(apppath, "Artillery.py")
     configfile = PurePosixPath(apppath, "config")
-    banlist  = PurePosixPath(apppath, "banlist.txt")
+    banlist = PurePosixPath(apppath, "banlist.txt")
     localbanlist = PurePosixPath(apppath, "localbanlist.txt")
     database = PurePosixPath(apppath, "database/temp.database")
     logpath = PurePosixPath(apppath, "logs")
@@ -304,14 +320,14 @@ if is_posix_os is True:
 two_factor_pass = read_config("2FA_PASS")
 two_fa_enabled = is_config_enabled("ENABLE_2FA")
 mail_time = read_config("EMAIL_FREQUENCY")
-check_interval = int(60)
+check_interval = int(mail_time)
 timer_enabled = is_config_enabled('EMAIL_TIMER')
 email_enabled = is_config_enabled("EMAIL_ALERTS")
 alert_user = read_config("ALERT_USER_EMAIL")
 smtp_user = read_config("SMTP_USERNAME")
 smtp_pwd = read_config("SMTP_PASSWORD")
 smtp_address = read_config("SMTP_ADDRESS")
-smtp_port = (read_config("SMTP_PORT"))
+smtp_port = read_config("SMTP_PORT")
 smtp_from = read_config("SMTP_FROM")
 ####################################Logging Configs###############################################
 syslog_type = read_config("SYSLOG_TYPE")
@@ -348,7 +364,7 @@ error_log_path = read_config("ERROR_LOG")
 harden_check = is_config_enabled("SYSTEM_HARDENING")
 file_monitor_enabled = is_config_enabled("MONITOR")
 monitor_folders = read_config("MONITOR_FOLDERS")
-monitor_frequency = (read_config("MONITOR_FREQUENCY"))
+monitor_frequency = read_config("MONITOR_FREQUENCY")
 exclude_folders = read_config("EXCLUDE")
 ###########################################Update Configs#########################################
 auto_update_enabled = is_config_enabled("AUTO_UPDATE")
@@ -366,6 +382,3 @@ threat_server_enabled = is_config_enabled("THREAT_SERVER")
 threat_server_location = read_config("THREAT_LOCATION")
 threat_file = read_config("THREAT_FILE")
 source_feeds_enabled = is_config_enabled("SOURCE_FEEDS")
-
-
-

@@ -5,15 +5,12 @@
 import time
 import re
 import os
-
-from src.config import monitor_frequency ,ssh_brute_attempts, banlist, is_posix_os
-from src.core import write_log, write_console , is_valid_ipv4, is_whitelisted_ip, ban
+from src.config import monitor_frequency, ssh_brute_attempts, banlist, is_posix_os
+from src.core import write_log, write_console, is_valid_ipv4, is_whitelisted_ip, ban
 from src.email_handler import warn_the_good_guys
 
 
-
-
-def ssh_monitor(monitor_frequency: int)->None:
+def ssh_monitor(monitor_frequency: int) -> None:
     counter = 0
     while 1:
         # for debian base
@@ -93,7 +90,8 @@ def ssh_monitor(monitor_frequency: int)->None:
 
         except Exception as e:
             print("[*] An error in ssh monitor occured. Printing it out here: " + str(e))
-#
+
+
 def start_ssh_monitor():
     if is_posix_os is True:
         write_console("[*] Launching SSH Bruteforce monitor.")
