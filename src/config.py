@@ -1,12 +1,9 @@
 #
 #
-# import libs needed from core.py
-#from src.core import *
 import re
 import os
 import sys
 import socket
-#from src.core import  write_console, write_log, globals
 from pathlib import PureWindowsPath, PurePosixPath
 
 
@@ -15,7 +12,6 @@ def is_posix():
     returns true if posix platform
     """
     if ('linux' or 'linux2' or 'darwin') in sys.platform:
-        #print(sys.platform)
         return True
     else:
         return False
@@ -127,7 +123,7 @@ def check_config() -> None:
     configdefaults["ACCESS_LOG"] = ["/var/log/apache2/access.log", "THIS IS THE PATH FOR THE APACHE ACCESS LOG"]
     configdefaults["ERROR_LOG"] = ["/var/log/apache2/error.log", "THIS IS THE PATH FOR THE APACHE ERROR LOG"]
     configdefaults["BIND_INTERFACE"] = ["", "THIS ALLOWS YOU TO SPECIFY AN IP ADDRESS. LEAVE THIS BLANK TO BIND TO ALL INTERFACES."]
-    configdefaults["THREAT_INTELLIGENCE_FEED"] = ["ON", "TURN ON INTELLIGENCE FEED, CALL TO https://www.binarydefense.com/banlist.txt IN ORDER TO GET ALREADY KNOWN MALICIOUS IP ADDRESSES. WILL PULL EVERY 24 HOURS"]
+    configdefaults["THREAT_INTELLIGENCE_FEED"] = ["OFF", "TURN ON INTELLIGENCE FEED, CALL TO https://www.binarydefense.com/banlist.txt IN ORDER TO GET ALREADY KNOWN MALICIOUS IP ADDRESSES. WILL PULL EVERY 24 HOURS"]
     configdefaults["THREAT_FEED"] = ["https://www.binarydefense.com/banlist.txt", "CONFIGURE THIS TO BE WHATEVER THREAT FEED YOU WANT BY DEFAULT IT WILL USE BINARY DEFENSE - NOTE YOU CAN SPECIFY MULTIPLE THREAT FEEDS BY DOING #http://urlthreatfeed1,http://urlthreadfeed2"]
     configdefaults["THREAT_SERVER"] = ["OFF", "A THREAT SERVER IS A SERVER THAT WILL COPY THE BANLIST.TXT TO A PUBLIC HTTP LOCATION TO BE PULLED BY OTHER ARTILLERY SERVER. THIS IS USED IF YOU DO NOT WANT TO USE THE STANDARD BINARY DEFENSE ONE."]
     configdefaults["THREAT_LOCATION"] = ["/var/www/", "PUBLIC LOCATION TO PULL VIA HTTP ON THE THREAT SERVER. NOTE THAT THREAT SERVER MUST BE SET TO ON"]
@@ -149,7 +145,7 @@ def check_config() -> None:
         configdefaults["RECYCLE_IPS"] = ["OFF", "RECYCLE banlist.txt AFTER A CERTAIN AMOUNT OF TIME - THIS WILL WIPE ALL IP ADDRESSES AND START FROM SCRATCH AFTER A CERTAIN INTERVAL"]
     configdefaults["ARTILLERY_REFRESH"] = ["86370", "RECYCLE INTERVAL AFTER A CERTAIN AMOUNT OF MINUTES IT WILL OVERWRITE THE LOG WITH A BLANK ONE AND ELIMINATE THE IPS - DEFAULT IS 7 DAYS"]
     if is_posix():
-        configdefaults["SOURCE_FEEDS"] = ["ON", "PULL ADDITIONAL SOURCE FEEDS FOR BANNED IP LISTS FROM MULTIPLE OTHER SOURCES OTHER THAN ARTILLERY"]
+        configdefaults["SOURCE_FEEDS"] = ["OFF", "PULL ADDITIONAL SOURCE FEEDS FOR BANNED IP LISTS FROM MULTIPLE OTHER SOURCES OTHER THAN ARTILLERY"]
     if is_windows():
         configdefaults["SOURCE_FEEDS"] = ["OFF", "PULL ADDITIONAL SOURCE FEEDS FOR BANNED IP LISTS FROM MULTIPLE OTHER SOURCES OTHER THAN ARTILLERY"]
 
@@ -217,7 +213,6 @@ def check_config() -> None:
 
     # read config file
     createnew = False
-    #configpath = get_config_path()
     if os.path.isfile(configfile):
         # read existing config file, update dict
         #print(f"[*] Checking existing config file {configfile}")
@@ -237,7 +232,7 @@ def check_config() -> None:
 
     if createnew:
         msg = f"A brand new config file {configfile} was created. Please review the file, change as needed, and launch artillery (again)."
-        #print(msg)
+        print(msg)
         #write_log(msg,1)
 #
     return
@@ -316,7 +311,7 @@ if is_posix_os is True:
     exceptionlog = PurePosixPath(logpath, "exceptions.log")
     hostname = socket.gethostname()
 ####################################Email Configs#################################################
-
+check_config()
 two_factor_pass = read_config("2FA_PASS")
 two_fa_enabled = is_config_enabled("ENABLE_2FA")
 mail_time = read_config("EMAIL_FREQUENCY")

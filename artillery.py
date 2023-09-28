@@ -13,9 +13,10 @@ import time
 import sys
 import os
 import _thread as thread
+#config.py will be replaced in next update.
 from src.config import configfile, email_enabled, alertlog, banlist, check_config, appname, apppath, is_windows_os, is_posix_os, file_monitor_enabled, recycle_ips_enabled, threat_server_enabled, auto_update_enabled, anti_dos_enabled, honeypot_enabled, ssh_brute_monitor_enabled, source_feeds_enabled, harden_check, ftp_brute_monitor_enabled, threat_feed_enabled, apache_monitor_enabled
 from src.pyuac import isUserAdmin, runAsAdmin
-from src.core import write_console, write_log, globals, check_banlist_path, create_iptables_subset, update, pull_source_feeds, refresh_log, threat_server
+from src.core import write_console, write_log,check_banlist_path, create_iptables_subset, update, pull_source_feeds, refresh_log, threat_server, CURRENT_SETTINGS, GLOBAL_SETTINGS
 
 #
 if is_windows_os is True:

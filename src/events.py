@@ -53,6 +53,7 @@ my_sid = GetTokenInformation(token, TokenUser)[0]
 info = win32evtlog.EVENTLOG_INFORMATION_TYPE
 warning = win32evtlog.EVENTLOG_WARNING_TYPE
 err = win32evtlog.EVENTLOG_ERROR_TYPE
+
 def write_windows_eventlog(appname: str, eventid: int, eventtype: str, send_toast: bool):
     if send_toast is True:
         print("sending toast...")

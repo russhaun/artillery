@@ -57,7 +57,7 @@ class ToastMessages(ToastNotifier):
         #setup blank icon
         new_icon = ''
         #change to icon dir
-        os.chdir("src\icons")
+        os.chdir("src\\icons")
         #set home path for directory
         homedir = os.getcwd()
         icon = 'toast_events_icon.ico'

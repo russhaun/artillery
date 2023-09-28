@@ -18,6 +18,10 @@ from string import *
 from . import globals
 from . import config
 from pathlib import PureWindowsPath, PurePosixPath
+from .config_class import CURRENT_SETTINGS, GLOBAL_SETTINGS, config_init
+
+loadconfig = config_init()
+loadconfig.generate_default_config()
 
 def init_globals() -> None:
     '''Defines global variables for windows and linux.
