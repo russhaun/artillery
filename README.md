@@ -34,13 +34,13 @@ For those technical folks you can find all of the code in the following structur
 - ```src/email_handler.py``` - main module for handling email
 - ```src/events.py``` - main module for trigering events on windows systems
 - ```src/ftp_monitor.py``` - main monitoring module for FTP bruteforcing
-- ```src/globals.py``` - main module for holding global variables for use in artillery
 - ```src/pyuac.py``` - main module for windows uac prompt
 - ```src/core.py``` - main central code reuse for things shared between each module
 - ```src/monitor.py``` - main monitoring module for changes to the filesystem
 - ```src/ssh_monitor.py``` - main monitoring module for SSH brute forcing
 - ```src/honeypot.py``` - main module for honeypot detection
 - ```src/harden.py``` - check for basic hardening to the OS
+- ```src/win_func.py``` - functions specific to Windows
 - ```database/integrity.data``` - main database for maintaining sha512 hashes of filesystem
 - ```setup.py``` - on linux copies files to ```/var/artillery/``` then edits ```/etc/init.d/artillery``` to ensure artillery                     starts per each reboot
                  - on windows copies files to ```\Program Files (x86)\Artillery\``` you have option to launch on install.(see below)
