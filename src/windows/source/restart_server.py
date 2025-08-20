@@ -5,18 +5,24 @@ from subprocess import CalledProcessError
 import time
 import sys
 from pathlib import PureWindowsPath
-from src.config import is_windows_os, is_posix_os
 from src.core import *
+##THIS ENTIRE SCRIPT WILL BE REPLACED IN FUTURE VERSIONS
+##WITH A MORE ROBUST CMDLINE UTILITY IN PROGRESS WHICH WILL CONSOLIDATE
+##ALL ARTILLERY CMDLINE TOOLS INTO ONE UTILITY DEALING WITH SERVICE MANAGEMENT
+##THIS INCLUDES THE ABILITY TO START, STOP, RESTART AND CHECK SERVICE STATUS 
+#THIS FILE WILL BE UPDATED TO USE THE SAME METHODS AS SERVICEMANAGER FROM TRAY APP
+
 
 #set some stuff up just for windows
-if is_windows_os is True:
+if 'win32' in sys.platform:
     import win32gui
     import win32process
     from win32api import GetUserNameEx
     from src.pyuac import isUserAdmin, runAsAdmin
-    EXE_FILE = "Artillery.exe"
-    EXE_PATH = str(globals.g_apppath)
-    PID_INFO_PATH = globals.g_pidfile
+    
+    EXE_PATH = settings.get_config('global',"APP_PATH")
+    EXE_FILE = settings.get_config('global',"APP_FILE")
+    PID_INFO_PATH = settings.get_config('global',"PIDFILE")
     PID = []
     #userneme in domain\user format
     U_INFO = GetUserNameEx(2)
@@ -47,7 +53,7 @@ def kill_artillery_win():
     1 for bootloader and 1 for actual code. for this to work we need to kill both'''
     try:
         if os.path.isfile(PID_INFO_PATH):
-            write_console('[*] Finding Process info.....')
+            log_event("[*] Finding Process info.....", 0, None, True)
             #grab bootloader id
             bootloader = GrabBootLoader()
             #read main id from file
@@ -58,25 +64,25 @@ def kill_artillery_win():
             p_id.close()
             mainwindow = PID[0]
             if bootloader:
-                write_console("[!] Bootloader ProcessID: " + bootloader)
-                write_console("[*] MainWindow ProcessID: " + mainwindow)
-                write_console('[*] Attempting to kill Artillery now.....')
-                write_console("[!] killing python with a big sword.....")
+                #this could all be condensed into one call but for clarity
+                log_event("[*] Bootloader ProcessID: " + bootloader, 0, None, True)
+                log_event("[*] MainWindow ProcessID: " + mainwindow, 0, None, True)
+                log_event('[*] Attempting to kill Artillery now.....', 0, None, True)
+                log_event("[!] killing python with a big sword.....", 0, None, True)
                 try:
                     #kill boot loader that was found.
                     kill_bootloader = subprocess.check_call(['cmd', '/C', 'taskkill', '/PID', bootloader], shell=True)
-                    write_console("[!] Sucessflly removed it's head.....")
-                    #subprocess.run(['cmd','/C', 'tasklist', '/FI', 'imagename eq ArtilleryUI.exe'])
+                    log_event("[!] Sucessfully removed it's head.....", 0, None, True)
                     #ArtilleryStopEvent()
                     return True
                 except CalledProcessError as err:
-                    write_console("[*] Looks like this process is dead already. ")
+                    log_event("[*] Looks like this process is dead already.", 0, None, True)
                     return False
             else:
-                write_console("[!] Bootloader process not present.....")
+                log_event("[!] Bootloader process not present.....", 0, None, True)
                 return False
         else:
-            write_console('[*] pid.txt was not found\n[*] Artillery must be run @ least once.......')
+            log_event('[*] pid.txt was not found\n[*] Artillery must be run @ least once.......', 1, None, True)
             pause = input("[*] File was not found press enter to quit:")
     except FileNotFoundError as err:
         pass
@@ -88,7 +94,7 @@ def restart_artillery_win():
     # check to see if artillery is running
     check = kill_artillery_win()
     if check:
-        write_console("[!] Process Killed\n[*] Launching now..... ")
+        log_event("[!] Process Killed\n[*] Launching now..... ", 0, None, True)
         subprocess.call(['cmd', '/C', 'cls'])
         #make sure proccess is dead wait a sec
         time.sleep(1)
@@ -103,7 +109,7 @@ def restart_artillery_win():
         except FileNotFoundError as e:
             pass
     else:
-        write_console("[*] Launching now..... ")
+        log_event("[*] Launching now..... ", 0, None, True)
         time.sleep(3)
         try:
             if os.path.isdir(EXE_PATH):
@@ -131,11 +137,11 @@ def main():
         restart_artillery_win()
         looper()
     elif result == 'exit':
-        write_console("Closing software please wait.....")
+        log_event("Closing software please wait.....", 0, None, True)
         time.sleep(3)
         sys.exit()
     else:
-        write_console("[!] Unknown command: " + cmd)
+        log_event(f"[!] Unknown command: {cmd}", 1, None, True)
         looper()
 
 
@@ -144,19 +150,18 @@ def looper():
 
 
 if __name__ == "__main__":
-    if is_windows_os is True:
+    if 'win32' in sys.platform:
         if not isUserAdmin():
             runAsAdmin()
             sys.exit(1)
         if isUserAdmin():
             time.sleep(2)
-            write_console(f"[*] Running as: {U_INFO}")
+            log_event(f"[*] Running as: {U_INFO}", 0, None, True)
             looper()
-    if is_posix_os is True:
+    if ('linux' or 'linux2' or 'darwin') in sys.platform:
         # kill running instance of artillery
         kill_artillery()
         #
         if os.path.isfile("/var/artillery/artillery.py"):
-            print(f"[*] {grab_time()}: Restarting Artillery Server...")
-            write_log("Restarting the Artillery Server process...", 1)
+            log_event("Restarting the Artillery Server process...",0,None,True)
             subprocess.Popen(["python3", "/var/artillery/artillery.py", "&"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)

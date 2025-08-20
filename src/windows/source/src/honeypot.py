@@ -1,193 +1,348 @@
 #!/usr/bin/python
 #
 # this is the honeypot stuff
+# 
 #
-#
-
+import sys
 import _thread as thread
 import socket
+from socket import socket as _socket
 import time
 import socketserver as SocketServer
 import os
 import random
 import datetime
-from src.core import *
+from .core import *
 import traceback
-from src.email_handler import warn_the_good_guys
-from src.config import tcp_ports, udp_ports, bind_interface, honeypot_ban_enabled, honeypot_autoaccept, log_message_alert, log_message_ban, exceptionlog
+from .email_handler import *
+from threading import Thread
 
 
-class TCPServer((SocketServer.ThreadingTCPServer)):
+honeypot_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
+#this is the delay on how often email handler will check the trigger file
+delay_timer = settings.get_config('current','EMAIL_FREQUENCY')
+SYSTRAY_ENABLED = True
+SYSTRAY_MSG_ACTVE = False
+ALERTS_PENDING = False
+#hardcoded for now
+systray_port = 10080
+systray_msg =""
+#to prevent spamming msgs with an ongoing scan
+#change to config option
+systray_throttle = 90
+#ports accessed on server
+TOUCHED_PORTS = []
+#ip seen by server
+KNOWN_IPS = []
+#ips banned by server
+BANNED_IPS = []
+
+
+
+
+
+class TCP6Server((SocketServer.ThreadingTCPServer)):
     """
-    defines a basic tcp server with threading
+    defines a basic tcp6 server with threading
     """
+    address_family = socket.AF_INET6
+    request_queue_size = 50
+    max_packet_size = 4096
+    timeout = 10
+
+    def handle_error(self, request, client_address) -> None:
+        return super().handle_error(request, client_address)
+
+class TCP4Server((SocketServer.ThreadingTCPServer)):
+    """
+    defines a basic tcp4 server with threading
+    """
+    address_family = socket.AF_INET
+    request_queue_size = 50
+    max_packet_size = 8192
+    timeout = 30
+    atkaddr = ''
+    atkport = ''
+    
     def handle_error(self, request, client_address):
-        write_console(f"client {client_address} had an error {str(request)}")
+        log_event(f"client {client_address} had an error {str(request)}",2,None,True)
+    
+    def get_request(self):
+        """
+        Handles one request. if valid ip and not banned or on whitelist
+        sets up a thread to handle the request
+        """
+        #setup our connection
+        connection, address = self.socket.accept()
+        #ip and responding port
+        ip, resport = str(address[0]), str(address[1])
+        #actual port open on server
+        srv_port = self.server_address[1]
+        #used to set per function values for logging/banning
+        self.atkaddr = str(ip)
+        self.atkport = str(srv_port)
+        #this will make sense in a min
+        self.reason = ""
+        #only continue if valid ip
+        if is_valid_ipv4(ip):
+            #and not on whitelist
+            if not is_whitelisted_ip(ip):
+                #or already banned
+                if not is_already_banned(ip):
+                    self.reason = "UNKNOWN"
+                else:
+                    #these all will be passed down at some point as reason. potential spam are where they are at now with logging
+                    log_event(f"[!] Connection from a banned ip: {ip} on tcp port: {srv_port}",1,None,True)
+                    self.reason = "BANNED"
+            else:
+                log_event(f"[!] Connection from a whitelisted  ip: {ip} on tcp port: {srv_port}",1,None,True)
+                self.reason = "WHITELISTED"
+        else:
+            log_event(f"[!] Connection from an invalid ip: {ip} on tcp port: {srv_port}",1,None,True)
+            self.reason = "INVALID IP"
+            #
+        self.receive_request(self.reason,connection,self.atkaddr,self.atkport)
 
+
+    
+    def receive_request(self,reason,connection,ip,port):
+        """Creates client thread"""
+        while True:
+            connection, address = self.socket.accept()
+            #ip and responding port
+            ip, resport = str(address[0]), str(address[1])
+            try:
+                Thread(target=self.client_thread, args=(connection, ip, port,reason)).start()
+            except:
+                log_event("[*] Thread did not start.",0,None,False)
+                traceback.print_exc()
+
+
+    def client_thread(self,connection, ip, port,reason):
+        """
+        do all work here with connected client
+        """
+        #client data returned to view or whatever
+        client_input = self.receive_input(connection, 8192)
+        #only add port/ip if not already there and log the event buh bye dups
+        #the reason will be used here for logging working on mechanics to make msg
+        if port not in TOUCHED_PORTS:
+            TOUCHED_PORTS.append(port)
+            log_event(f"[!] Attack detected from address: {ip} on tcp port: {port}",1,None,True)
+        if ip not in KNOWN_IPS:
+            KNOWN_IPS.append(str(ip))
+
+        #print(reason,flush=True)
+        #from here we can respond accordingly
+        #we have all the data we need to act how we want
+        #have to build in the logic for "faking" a response
+        #based on what we are server/port #.
+        #the reason we pass will also have an effect on logic
+        #this will turn into the trigger for Answeringmachine code eventually
+        #send em garbage for now until the logic is built(old style)
+        try:
+            
+            self.send_response(connection, self.atkaddr)
+        except ConnectionError as e:
+            traceback.print_exc()
+        #check to see if an alert has already been set
+        global SYSTRAY_MSG_ACTVE
+        if SYSTRAY_MSG_ACTVE == True:
+           #just pass
+            pass
+        else:
+            global systray_msg
+            #set our msg for systray
+            msg = self.create_alert()
+            systray_msg = msg[0]
+            SYSTRAY_MSG_ACTVE = True
+            #this name no longer applies willl be changed 
+            self.bancheck(ip)
+
+    
+    def receive_input(self,connection, max_buffer_size)->str:
+        """
+        attempts to prevent overflows of created buffer for now it just alerts
+        """
+        try:
+            client_input = connection.recv(max_buffer_size)
+            client_input_size = sys.getsizeof(client_input)
+        except ConnectionResetError as err:
+            print('[*] Connection was lost:', err,flush=True)
+
+        if client_input_size > max_buffer_size:
+            print("[*] The input size is greater than expected {}".format(client_input_size),flush=True)
+            #possible starting place for throttling maybe?
+            #or is  it better to do amount of connections/requests per sec/min?
+        
+        decoded_input = client_input.rstrip() #strip end of line
+        
+        result = self.process_input(decoded_input,connection)
+
+        return result
+
+
+    def process_input(self,input_str,connection):
+        """
+        Cleanup data received, send our response
+        and kick off logging and ban facilities
+        """
+       
+        #if its blank just pass
+        if input_str == None:
+            return str("No Data")
+        else:
+            #else return it to do stuff with 
+            return str(input_str)
+
+    def send_response(self, connection,raddr):
+        """
+        sends garbage back to connected client.
+        TO_DO: add random delay to response to 
+        just make them wait for a min. :))
+
+        """
+        try:
+            connection.send(self.gen_response())
+        except ConnectionAbortedError as err:
+            log_event("connection was aborted",2,evtid=None,console=False)
+    
+    def gen_response(self):
+        '''
+        generates a fake string and returns it. eventually this will be the tied
+        into answeringmachine code
+        '''
+        length = random.randint(5, 30000)
+        fake_string = os.urandom(int(length))
+        return fake_string
+    
+    def create_alert(self):
+        '''
+        generates alert and returns alertmsg,ip,port for logging/processing
+        '''
+        
+        nrvars = ''
+        now = str(datetime.datetime.today())
+        port = str(self.atkport)
+        alert = ""
+        message = settings.get_config("current","LOG_MESSAGE_ALERT")
+        if settings.is_config_enabled("HONEYPOT_BAN") == True:
+            message = settings.get_config("current", "LOG_MESSAGE_BAN")
+        message = message.replace("%time%", now)
+        message = message.replace("%ip%", self.atkaddr)
+        message = message.replace("%port%", str(port))
+        alert = message
+        if "%" in message:
+            nrvars = message.count("%")
+        if nrvars == 1:
+            alert = message % (now)
+        elif nrvars == 2:
+            alert = message % (now, self.atkaddr)
+        elif nrvars == 3:
+            alert = message % (now, self.atkaddr, str(port))
+        return alert,self.atkaddr,port
+    
+    def bancheck(self,ip):
+        '''
+        appends ip to banlist trigger lists
+        '''
+        #add to banned ip list if we are set to ban
+        if settings.is_config_enabled("HONEYPOT_BAN") == True:
+            BANNED_IPS.append(str(ip))
+        #dont think this should stay here not the right place
+        global ALERTS_PENDING
+        #if alerts are pending just pass
+        if ALERTS_PENDING == True:
+            pass
+        else:
+            ALERTS_PENDING = True
+
+class TCPSocket((SocketServer.BaseRequestHandler)):
+    '''creates a blank tcp socket. all actions take place on TCP4Server'''
+    
+
+
+class UDP6Server((SocketServer.ThreadingUDPServer)):
+    """
+    defines a basic udp6 server with threading
+    """
+    address_family = socket.AF_INET6
+    socket_type = socket.SOCK_DGRAM
     request_queue_size = 10
 
-
-class UDPServer((SocketServer.ThreadingUDPServer)):
-    """
-    defines a basic udp server with threading
-    """
-    #
     def handle_error(self, request, client_address):
-        write_console(f"client {client_address} had an error {str(request)}")
+        log_event(f"client {client_address} had an error {str(request)}",1,None,True)
+
+    def close_request(self, request: _socket | tuple[bytes, socket]) -> None:
+        return super().close_request(request)
+    
+    def handle_request(self) -> None:
+        return super().handle_request()
+
+
+class UDP4Server((SocketServer.ThreadingUDPServer)):
+    """
+    defines a basic udp4 server with threading
+    """
+    address_family = socket.AF_INET
+    socket_type = socket.SOCK_DGRAM
+
+    def handle_error(self, request, client_address):
+        log_event(f"client {client_address} had an error {str(request)}",1,None,True)
 
     request_queue_size = 10
-
 
 class UDPSocket((SocketServer.BaseRequestHandler)):
     '''creates a udp socket. all methods run in order setup(1), handle(2), finish(3).
     '''
-    #
+
     def handle(self):
         '''takes data from attacker and does stuff. Then jumps to finish function'''
         #take info and do more stuff
         data = self.request[0].strip()
         skt = self.request[1]
-        print(f"Data recieved: {data}")
-        #skt.sendto(self.fake_string ,self.client_address)
+        #write_console(f"Data recieved: {str(data)}")
+        skt.sendto(self.fake_string ,self.client_address)
 
     def setup(self):
         '''checks to see if ip is valid and not on whitelist.
         Gets some initial info about attacker and alerts
         on connection then jumps to handle function'''
-        # fake_string = random number between 5 and 30,000 then os.urandom the
-        # command back
+        #random number between 5 and 30,000 then os.urandom the command back
         self.random_length_number = random.randint(5, 30000)
         self.fake_string = os.urandom(int(self.random_length_number))
 
         ip = str(self.client_address[0])
+        #only continue if is valid ip
         if is_valid_ipv4(ip):
             if not is_whitelisted_ip(ip):
-                #srv_ip = str(self.server.server_address[0])
-                srv_port = str(self.server.server_address[1])
-                write_console(f"connection from {ip} on udp port {srv_port}")
+                if not is_already_banned(ip):
+                    srv_port = str(self.server.server_address[1])
+                    log_event(f"[!] Attack detected from address: {ip} on udp port: {srv_port}",1,None,True)
 
     def finish(self):
         '''Maybe get even more stuff and then
         get that mofo outta here and perform cleanup'''
-        #print("gonna ban em")
-        return
 
-
-class TCPSocket((SocketServer.BaseRequestHandler)):
-    '''creates a tcp socket. all methods run in order setup(1),handle(2),finish(3).
-    for now handle and finish do nothing'''
-    def handle(self):
-        '''takes data from attacker and does stuff. Then jumps to finish function'''
-        #take info and do stuff
-        #try:
-        #    write_log("Honeypot detected incoming connection from %s to tcp port %s" % (self.ip, self.server.server_address[1]))
-        #    self.request.send(self.fake_string)
-        #except Exception as e:
-        #    write_console("Unable to send data to %s:%s" % (self.ip, str(self.server.server_address[1])))
         pass
 
-    def setup(self):
-        """
-            checks to see if ip is valid and not on whitelist.
-        Gets some initial info about attacker and alerts
-        on connection then jumps to handle function
-        """
-        self.ip = self.client_address[0]
-        self.data = self.request.recv(4096).strip()
-        srv_ip = str(self.server.server_address[0])
-        srv_port = str(self.server.server_address[1])
-        length = random.randint(5, 30000)
-        self.fake_string = os.urandom(int(length))
-
-        # try the actual sending and banning
-        try:
-            ip = self.client_address[0]
-            try:
-                write_log("Honeypot detected incoming connection from %s to tcp port %s" % (ip, self.server.server_address[1]))
-                self.request.send(self.fake_string)
-            except Exception as e:
-                write_console("Unable to send data to %s:%s" % (self.ip, str(self.server.server_address[1])))
-            #    pass
-            if is_valid_ipv4(self.ip):
-                if not is_whitelisted_ip(self.ip):
-                    now = str(datetime.datetime.today())
-                    port = str(self.server.server_address[1])
-                    subject = "%s [!] Artillery has detected an attack from the IP Address: %s" % (
-                        now, self.ip)
-                    alert = ""
-                    message = log_message_alert
-                    if honeypot_ban_enabled is True:
-                        message = log_message_ban
-                    message = message.replace("%time%", now)
-                    message = message.replace("%ip%", self.ip)
-                    message = message.replace("%port%", str(port))
-                    alert = message
-                    if "%" in message:
-                        nrvars = message.count("%")
-                        if nrvars == 1:
-                            alert = message % (now)
-                        elif nrvars == 2:
-                            alert = message % (now, self.ip)
-                        elif nrvars == 3:
-                            alert = message % (now, self.ip, str(port))
-                    #
-                    warn_the_good_guys(subject, alert)
-                    # close the socket
-                    try:
-                        self.request.close()
-                    except:
-                        pass
-
-                    # if it isn't whitelisted and we are set to ban
-                    ban(self.ip)
-                else:
-                    write_log(f"Ignore connection from {self.ip} to port {str(self.server.server_address[1])} whitelisted.")
-
-        except Exception as e:
-            emsg = traceback.format_exc()
-            write_console(f"[!] Error detected. Printing: {str(e)}")
-            write_console(emsg)
-            write_log(emsg, 2)
-            #log_exception(f"[!] Error detected. Printing: {str(e)}")
-            #print("")
-
-    def finish(self):
-        pass
-        # get that mofo outta here and perform cleanup
-        # close the socket
-        #try:
-        #   self.request.close()
-        #except:
-
-        return
 
 
 def open_sesame(porttype, port):
     """
     adds entries to iptables for posix platform
     """
-    if honeypot_autoaccept:
+    if settings.is_config_enabled("HONEYPOT_AUTOACCEPT") == True:
         if is_posix():
             cmd = "iptables -D ARTILLERY -p %s --dport %s -j ACCEPT -w 3" % (porttype, port)
             execOScmd(cmd)
             cmd = "iptables -A ARTILLERY -p %s --dport %s -j ACCEPT -w 3" % (porttype, port)
             execOScmd(cmd)
-            #write_log("Created iptables rule to accept incoming connection to %s %s" % (porttype, port))
+            log_event(f"Created iptables rule to accept incoming connection to {porttype} {port}",0,None,False)
         if is_windows():
             pass
-#
-#this is a temporary function to handle errors from check_open_port()
-#will be removed in future
 
-
-def log_exception(exception):
-    """
-    logs all server exceptions to artillery exceptions.log file
-    """
-    with open(exceptionlog, "a") as event:
-        event.write(str(exception) + "\n")
-
-
+##TO_DO add support for ip6
 def check_open_port(port, port_type, bind_interface):
     '''attempts to see if ports are open on local host.
         retuns True if open. False if closed '''
@@ -200,10 +355,8 @@ def check_open_port(port, port_type, bind_interface):
     try:
         sock.bind((bind_interface, int(port)))
         result = True
-        #print(f"{port_type}: {port} is open")
     except socket.error as e:
-        #print(f"{port_type}: {port} is closed")
-        log_exception(f"{port_type} port: {port} creation failed with: {str(e)}. Please check the config file and make sure the port is not in use")
+        log_event(f"{port_type} port: {port} creation failed with: {str(e)}. Please check the config file and make sure the port is not in use",2,None,False)
         result = False
 
     sock.close()
@@ -211,31 +364,29 @@ def check_open_port(port, port_type, bind_interface):
 
 
 def listentcp_server(tcpport, bind_interface):
-    '''Creates a basic TCP server based on TCPServer and TCPSocket classes'''
+    '''Creates a basic TCP server based on TCP4Server and TCPSocket classes'''
     if not tcpport == "":
         port = int(tcpport)
         #this will bind to all ips. localhost/0.0./and lan
         if bind_interface == "":
-            #server = ThreadingTCPServer(ThreadingMixin, TCPServer(('', port), TCPSocket))
-            server = TCPServer(('', port), TCPSocket)
+            server = TCP4Server(('', port), TCPSocket)
         else:
             #this will only bind to given ip from config file
-            #server = ThreadingTCPServer(ThreadingMixin, TCPServer((bind_interface, port), TCPSocket))
-            server = TCPServer((bind_interface, port), TCPSocket)
+            server = TCP4Server((bind_interface, port), TCPSocket)
         open_sesame("tcp", port)
         server.serve_forever()
 
 
 def listenudp_server(udpport, bind_interface):
-    '''Creates a basic UDP server based on UDPServer and UDPSocket classes'''
+    '''Creates a basic UDP server based on UDP4Server and UDPSocket classes'''
     if not udpport == "":
         port = int(udpport)
         #this will bind to all ips. localhost/0.0./and lan
         if bind_interface == "":
-            server = UDPServer(('', port), UDPSocket)
+            server = UDP4Server(('', port), UDPSocket)
         else:
             #this will only bind to given ip from config file
-            server = UDPServer((bind_interface, port), UDPSocket)
+            server = UDP4Server((bind_interface, port), UDPSocket)
         open_sesame("udp", port)
         server.serve_forever()
 
@@ -247,7 +398,6 @@ def main(tcpports, udpports, bind_interface):
         sends alert/email after gathering all info/exceptions
         if ports were not used from config file.
     """
-    # split tcpports into tuple
     open_tcp = []
     open_udp = []
     closed_tcp = []
@@ -277,7 +427,6 @@ def main(tcpports, udpports, bind_interface):
             port_availible = check_open_port(uport, "UDP", bind_interface)
             if port_availible is True:
                 open_udp.append(uport)
-                #write_log(f"[*] Set up listener for udp port {uport}")
                 time.sleep(.5)
                 #thread.start_new_thread(sniffer, (host,bind_interface,'TCP', tport))
                 thread.start_new_thread(listenudp_server, (uport, bind_interface,))
@@ -322,11 +471,12 @@ def main(tcpports, udpports, bind_interface):
             bind_error = f"Artillery was unable to bind to {str(failed_tcp)} TCP port/ports: {str(closed_tcp)}. This could be due to an active port in use."
         if tcp_bind_error is False and udp_bind_error is True:
             bind_error = f"Artillery was unable to bind to {str(failed_udp)} UDP port/ports: {str(closed_udp)} This could be due to an active port in use."
-        write_log(f"{bind_error}", 2)
-        warn_the_good_guys(subject, bind_error)
+        log_event(f"{bind_error}", 2,None,False)
+        #write_log(f"{bind_error}", 2)
+        #warn_the_good_guys(subject, bind_error)
         #clear exception log
-        with open(exceptionlog, "r+") as log:
-            log.truncate(0)
+        # with open(exceptionlog, "r+") as log:
+        #     log.truncate(0)
     if tcp_bind_success or udp_bind_success is True:
         subject = "Set up listener on some ports"
         if tcp_bind_success and udp_bind_success is True:
@@ -335,18 +485,91 @@ def main(tcpports, udpports, bind_interface):
             message = f"{subject} Opened {str(success_tcp)} TCP ports."
         if tcp_bind_success is False and udp_bind_success is True:
             message = f"{subject} Opened {str(success_udp)} UDP Ports."
-        write_log(f"{message}", 0)
-        write_log(f"TCP ports: {str(open_tcp)}", 0)
-        write_log(f"UDP ports: {str(open_udp)}", 0)
-        if is_posix():
-            write_log(f"Created {success_tcp+success_udp} iptables rules to accept incoming connections", 0)
-        #write_console(f"Created iptables rule to accept incoming connection for {success_tcp+success_udp} ports")
+        log_event(f"{message}", 0,None,False)
+        log_event(f"TCP ports: {str(open_tcp)}", 0,None,False)
+        log_event(f"UDP ports: {str(open_udp)}", 0,None,False)
+
+def check_for_alerts():
+    """
+    starts a thread to check for active alerts.
+    if true processes alerts and sends msg's to 
+    appropriate sources
+    """
+    while 1:
+        #sleep for throttle period 
+        time.sleep(systray_throttle)
+        #create all of our copies of data we want
+        ports = set(TOUCHED_PORTS)
+        ips = set(KNOWN_IPS)
+        bans = set(BANNED_IPS)
+        global ALERTS_PENDING
+        if ALERTS_PENDING == False:
+            pass
+        else:
+            #do work we have an alert
+            global systray_msg
+            msg = systray_msg
+            #set our values for email if enabled
+            honeypot_email_ip = KNOWN_IPS[0]
+            honeypot_email_port = TOUCHED_PORTS[0]
+            systray_msg = ''
+            #if email alerts is turned on
+            if settings.is_config_enabled('EMAIL_ALERTS') == True:
+                #write email trigger has its own timer
+                trigger_src = settings.get_config('global','LOG_FILE')
+                trigger_file = f"{trigger_src}\\junk\\hptrigger.txt"
+                with open(trigger_file,"w",encoding='utf-8') as trigger:
+                    trigger.write(f"{str(honeypot_email_ip)},{str(honeypot_email_port)}"+"\n")
+            #only check systray on windows for now
+            global SYSTRAY_ENABLED
+            if is_windows():
+                if SYSTRAY_ENABLED == False:
+                    pass
+                else:
+                    systray_alert(1,msg)
+            #do any other logging here
+            #maybe ban here as well?
+            #if we are not set to ban this will be 0
+            if len(BANNED_IPS) == 0:
+                pass
+            else:
+                #we are set to ban get the info we need and ban
+                for item in BANNED_IPS:
+                    #check to see if the line is already there
+                    lineexists = does_line_exist(item)
+                    if lineexists == True:
+                        #print(f"ip {item} is already present",flush=True)
+                        pass
+                    else:
+                        #ban from here this solves the dupe issue
+                        ban(item)
+                        #print(f"ip {item} is not in file adding",flush=True)
+                #
+            #
+            #when were finished set ALERTS_PENDING to False
+            global SYSTRAY_MSG_ACTVE
+            SYSTRAY_MSG_ACTVE = False
+            ALERTS_PENDING = False
+            #clear all of our original values to 
+            # take it all out of memmory
+            KNOWN_IPS.clear()
+            BANNED_IPS.clear()
+            TOUCHED_PORTS.clear()
+            #log_event(f"touched ports value: {TOUCHED_PORTS}",0,None,True)
+        
+
+
+        
 
 
 def start_honeypot():
     """
     starts main honeypot fuction
     """
-    write_console("[*] Starting honeypot.")
-    write_log("[*] Launching honeypot.")
-    main(tcp_ports, udp_ports, bind_interface)
+    #write_console("[*] Starting honeypot.")
+    log_event("[*] Launching honeypot.", 0, None,console=True)
+    Thread(target=main,args=(settings.get_config("current","TCPPORTS"),settings.get_config("current","UDPPORTS"),settings.get_config("current","BIND_INTERFACE"))).start()
+    Thread(target=check_for_alerts,args=()).start()
+    if settings.is_config_enabled('EMAIL_ALERTS') == True:
+        honeypot_email_logger.set_trigger_file('hptrigger.txt')
+        Thread(honeypot_email_logger.check_pending_msgs, ()).start()

@@ -1,5 +1,4 @@
 
-#
 # This one monitors file system integrity
 import os
 import re
@@ -9,21 +8,24 @@ import subprocess
 import _thread as thread
 import datetime
 import shutil
-from src.core import is_windows, PureWindowsPath, write_console, write_log
-from src.config import read_config
-from src.email_handler import warn_the_good_guys
+from .core import is_windows, settings,log_event
+from .email_handler import *
+
+monitor_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
 #
 #
 if is_windows():
     #i import like this due to not wanting to add windows imports in this file
     from .win_func import watch_directory_for_changes
+    from pathlib import PureWindowsPath
 
 
 def monitor_system(time_wait):
     # total_compare is a tally of all sha512 hashes
     total_compare = ""
     # what files we need to monitor
-    check_folders = read_config("MONITOR_FOLDERS")
+    check_folders = settings.get_config("current","MONITOR_FOLDERS")
+    #check_folders = read_config("MONITOR_FOLDERS")
     # split lines
     check_folders = check_folders.replace('"', "")
     check_folders = check_folders.replace("MONITOR_FOLDERS=", "")
@@ -36,7 +38,8 @@ def monitor_system(time_wait):
         # know
         if os.path.isdir(directory):
             # check to see if theres an include
-            exclude_check = read_config("EXCLUDE")
+            exclude_check = settings.get_config("current","EXCLUDE")
+            #exclude_check = read_config("EXCLUDE")
             match = re.search(exclude_check, directory)
             # if we hit a match then we need to exclude
             if not directory in exclude_check:
@@ -114,50 +117,47 @@ def monitor_system(time_wait):
                     pass
 
                 else:
+                    
                     subject = "[!] Artillery has detected a change. [!]"
                     output_file = "********************************** The following changes were detected at %s **********************************\n" % (
                         str(datetime.datetime.now())) + str(output_file) + "\n********************************** End of changes. **********************************\n\n"
-                    warn_the_good_guys(subject, output_file)
 
     # put the new database as old
     if os.path.isfile("/var/artillery/database/temp.database"):
         shutil.move("/var/artillery/database/temp.database",
                     "/var/artillery/database/integrity.database")
 
-
 def start_monitor():
     '''Starts Linux folder watch routine for specified directories.'''
-    # check if we want to monitor files
     # start the monitoring
-    time_wait = read_config("MONITOR_FREQUENCY")
+    time_wait = settings.get_config("current","MONITOR_FREQUENCY")
     # loop forever
     while 1:
         thread.start_new_thread(monitor_system, (time_wait,))
         time_wait = int(time_wait)
         time.sleep(time_wait)
 
-
 def watch_folders():
     '''Starts Windows folder watch routine for specified directories. for now
     it tells when something happens. will work in more logic later'''
     try:
-        paths_to_watch = read_config("MONITOR_FOLDERS")
+        paths_to_watch = settings.get_config("current","MONITOR_FOLDERS")
         paths_to_watch = paths_to_watch.replace('"', "")
         paths_to_watch = paths_to_watch.replace(" ", "")
         paths_to_watch = paths_to_watch.replace("MONITOR_FOLDERS=", "")
         paths_to_watch = paths_to_watch.strip(" ")
         paths_to_watch = paths_to_watch.split(",")
     except BaseException as e:
-        print(e.args)
+        #add exception log here
+        print(e.args,flush=True)
     # cycle through tuple
     for directory in paths_to_watch:
         path = PureWindowsPath(directory)
         try:
-            write_console("[*] Starting Folder Monitor on path: " + directory)
-            write_log("[*] Starting Folder Monitor on path: " + directory)
+            log_event(f"[*] Starting Folder Monitor on path: {path}",0,None,True)
             #have to pass None here start_new_thread doesn't like when u only give 1 var
             #on function it only watches the first entry if u don't
             k = None
             thread.start_new_thread(watch_directory_for_changes, (str(path), k))
         except Exception as err:
-            write_log(err)
+            log_event(err,2,None,False)

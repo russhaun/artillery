@@ -1,6 +1,33 @@
 
 # Changes list
 
+#####################
+version 3.0.0       8/20/25
+#####################
+
+* added fixes for issue #81
+* added new systray companion app that runs as a standard user(elevates when needed)
+* adding systray alert func to core.py(windows only for now)
+* added new email_handler.py. it is now a class which automates gathering details for email to be sent. can be imported into other files for use.
+* removing gmail as default mail provider due to changes with the auth mechinisms and also 2fa_auth as well in config file. Use a self controlled provider from now on.
+* added banlist/whitelist/is_banned checks on connect in honeypot.py. other funcs that contain these checks can be removed as not needed now.
+* removed globals.py from project as well as init_globals func in core py. has been replaced with config.py whch handles all configuration now.
+* reworked honeypot.py to include ipv6 servers for tcp/udp.They just exist for now more testing needed
+* moved functions from socket level to server level in honeypot.py for ipv4 TCP server.Implemented some logic for future
+* added func check_for_alerts to honeypot.py to handle alerting no longer logs dups due to reworking of honeypot.py.
+* added new func to core.py log_event which accepts new flags to consoldates logging functions.
+* modified syslog func in core.py to handle all logging methods avalible.
+* added type hints to most functions to better inform what is required to run.
+* updated most functions with docstrings to inform what function does and how to use.
+* reworked get banlist method to use the Request class to include custom headers it now also detects ipv6 addr.
+* added flush=True to log_event print function in core.py to flush buffers when consolelogging is enabled to prevent hanging
+* added flush=True to all print statements in project most were in posix side will all be changed to log_event method in future
+* reworking banip routine to eliminate dupes in banlist added function does_line_exist to core.py
+* change to systray app not properly launching update executable due to incorrect path being returned
+* updated restart_server.py and remove_ban.py to use new log_event function
+
+
+
 ######################
 version 2.9.1        9/5/23
 ######################
