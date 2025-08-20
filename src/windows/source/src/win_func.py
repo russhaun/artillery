@@ -11,29 +11,21 @@ import subprocess
 import re
 import os
 import sys
-import time
 from win32evtlogutil import RemoveSourceFromRegistry
 from win32api import SetConsoleTitle, GetCurrentProcessId
 from win32security import GetTokenInformation, TokenUser, OpenProcessToken
 import win32file
 import win32con
 from .event_log import write_windows_eventlog , err , warning, info
-from . import globals
-from .core import write_log, write_console, is_windows, is_posix, init_globals
-from src.config import read_config
-import requests
-#import random
+from .core import is_windows, is_posix, settings ,log_event
 import platform
 #
-init_globals()
-#
 if is_windows():
-
     from winreg import *
 #
 if is_posix():
     print("[!] Linux detected!!!!!!!!!.This script wil only run on windows. please try again")
-    sys.exit()
+    #sys.exit()
 #
 #
 ####################################################################################
@@ -44,7 +36,7 @@ if is_posix():
 def get_config(cfg):
     '''get various pre-set config options used throughout script'''
     #Current artillery version
-    current = ['2.9.1']
+    current = ['3.0.0']
     #Known Os versions
     oslst = ['Windows 7 Pro', 'Windows Server 2008 R2 Standard', 'Windows 8.1 Pro', 'Windows 10 Pro', 'Windows Small Business Server 2011 Essentials',
              'Windows Server 2012 R2 Essentials', 'Hyper-V Server 2012 R2','Windows Server 2016 Standard', 'Windows Server 2016 Essentials']
@@ -81,23 +73,18 @@ def get_config(cfg):
         return path_vars
     else:
         pass
-def get_title() -> None:
+def get_title(name:str) -> None:
     '''sets title of window on windows systems using pywin32.winapi'''
-    SetConsoleTitle('Artillery - Advanced Threat Detection')
+    SetConsoleTitle(name)
     return
 #
 def get_pid() -> None:
     """
     grabs current processid using GetCurrentProcessId()
-    from pywin32.winapi and saves to txt file. for future use with "restart_server" script
+    from pywin32.winapi and saves to log file.
     """
     p_id = GetCurrentProcessId()
-    s_id = str(p_id)
-    pid_txt = globals.g_pidfile
-    with open(pid_txt, 'w') as cpid:
-        cpid.write(s_id + "\n")
-        cpid.close()
-    write_log(f"[*] Current ProcessId: {s_id}")
+    log_event(f"[*] Current ProcessId: {str(p_id)}",0,None,False)
     return
 #Artillery version info
 ####################################################################################
@@ -107,8 +94,7 @@ def current_version() -> None:
     ver = get_ver[0]
     s_ver =str(ver)
     info = f"[*] Artillery Ver: {s_ver}"
-    write_log(info)
-    write_console(info)
+    log_event(info,0,None,True)
     return
 
 
@@ -177,106 +163,20 @@ def freeze_check() -> str:
     if temp == 'cold':
         exe_path = os.path.dirname(sys.executable)
         mei_path = bundle_dir
-        write_log(f"[*] Freeze Check: we are {frozen} frozen.")
+        log_event(f"[*] Freeze Check: we are {frozen} frozen.",0,None,False)
         py_ver = platform.python_version()
-        #write_console(f"[*] Python ver: {py_ver}")
-        write_log(f"[*] Python ver: {py_ver}")
+        log_event(f"[*] Python ver: {py_ver}",0,None,False)
         return str(exe_path)
     else:
         py_ver = platform.python_version()
-        write_log(f"[*] Freeze Check: we are {frozen} frozen.")
-        write_log(f"[*] Python ver: {py_ver}")
+        log_event(f"[*] Freeze Check: we are {frozen} frozen.",0,None,False)
+        log_event(f"[*] Python ver: {py_ver}",0,None,False)
+        return(bundle_dir)
 
 
-#
-def get_update_info():
-    '''grabs user info when u start script. used mainly for update locations when
-    starting as an standard user i have to create some stuff first
-    for main_update func to complete properly'''
-    paths = get_path_info()
-    tmp = paths[0]+ "\\temp"
-    h_path = os.environ['HOMEPATH']
-    update_path = h_path +"\\downloads\\ArtilleryUpdates"
-    settings = tmp + "\\UpdateSettings.txt"
-    if not os.path.isdir(update_path):
-        os.makedirs(update_path)
-    if not os.path.isfile(settings):
-        #print("[*] No settings file found.....")
-        os.makedirs(tmp)
-    with open(settings, 'w') as settingsfile:
-        settingsfile.write(update_path)
-    settingsfile.close()
-#
-def update_windows():
-    '''Update routine for Artillery on windows systems. Uses Requests along with Zipfile
-    to reach out and download&extract updates from github if any after checking upstream.'''
-    #
-    write_console("[*] Checking for updates.....")
-    hv = get_os()
-    path_to_updates = read_config("UPDATE_LOCATION")
-    print("[*] Current update path settings: " + str(path_to_updates))
-    update_loc = []
-    paths = get_path_info()
-    tmp = paths[0]+ "\\temp"
-    #file created on artillery start
-    update_settings = tmp +"\\UpdateSettings.txt"
-    #check to see if file exists first possibly using admin acct as logged on user.
-    #the file never gets created this way so it might error out.
-    # I use "users\%username%\downloads\artilleryupdates as update_path value"
-    if not os.path.isfile(update_settings):
-        get_update_info()
-        time.sleep(1)
-        with open(update_settings, 'r')as us:
-            for line in us:
-                line = line.strip()
-                update_loc.append(line)
-    else:
-        with open(update_settings, 'r')as us:
-            for line in us:
-                line = line.strip()
-                update_loc.append(line)
-    #
-    update_path = update_loc[0]
-   #change to update dir
-    os.chdir(update_path)
-    #only launch if files are present
-    if os.path.isfile('start_update.bat'):
-        os.system("start cmd /K start_update.bat")
-    else:
-        #download what we dont have and then launch
-        write_console("[*] Downloading needed files to get updates")
-        write_console("[*] Downloading update.py")
-        f_name = 'update.py'
-        url = 'https://raw.githubusercontent.com/russhaun/Updates/master/Artillery/update.py'
-        r = requests.get(url)
-        with open(f_name , 'w') as ufile:
-            #response is binary have to convert it to utf-8
-            response = r.content
-            decoded = response.decode(encoding="utf-8")
-            ufile.write(decoded)
-        ufile.close()
-        write_console("[*] Done with Update.py")
-        write_console("[*] Downloading start_update.bat")
-        #download batch file
-        f_name = 'start_update.bat'
-        url = 'https://raw.githubusercontent.com/russhaun/Updates/master/Artillery/start_update.bat'
-        r = requests.get(url)
-        with open(f_name , 'w') as bfile:
-            #response is binary have to convert it to utf-8
-            response = r.content
-            decoded = response.decode(encoding="utf-8")
-            bfile.write(decoded)
-        bfile.close()
-        write_console("[*] Done with start_update.bat")
-        write_console("[*] Starting update.....")
-        time.sleep(5)
-        os.system("start cmd /K start_update.bat")
-
-        #pass
-    #
 def get_os()-> None:
     '''This function uses pre-compiled lists to try and determine host os by comparing values to host entries
-    if a match is found reports version'''
+    if a match is found reports version. this will be removed in future and replaced with get_win_config()'''
     if is_posix:
         pass
     if is_windows:
@@ -330,12 +230,15 @@ def get_os()-> None:
                 if build in buildresults:
                     OsBuild = build
             #when were done comparing print what was found
-            write_console("[*] Detected OS: " + OsName+ " Build: " + OsBuild)
+            log_event(f"[*] Detected OS: {OsName} Build: {OsBuild}",0,None,True)
+            #write_console("[*] Detected OS: " + OsName+ " Build: " + OsBuild)
         return
 #
 #
 def get_win_config(param):
-    '''Returns a value from windows registry related to settings for artillery.'''
+    '''Returns a value from windows registry related to settings for artillery.
+    These values are created at install time by msi
+    '''
     ccfg = []
     results = []
     try:
@@ -388,7 +291,7 @@ def insecure_service_check():
     """
     #warning = ""
     #
-    if is_windows():
+    if 'win32' in sys.platform:
         #loglink prints the full url to copy and paste
         #printlink is what is printed to screen
         srvlog = '[*] Service Check: SMBv1 was detected!!!. Please refer to this link and follow instructions.\n https://support.microsoft.com/en-us/help/2696547/how-to-detect-enable-and-disable-smbv1-smbv2-and-smbv3-in-windows-and'
@@ -403,24 +306,26 @@ def insecure_service_check():
             while True:
                 #prints out results to txt file to parse for needed strings below
                 srvsubkey = EnumValue(srvkeyval, srvkeyctr)
-                smbcheck = open("smbsrv_check.txt", "a")
+                smbcheck = open("smbsrv_check.txt", "a",encoding='utf-8')
                 smbcheck.write(str(srvsubkey))
                 srvkeyctr += 1
         #catch the error when it hits end of the key
         except WindowsError:
             smbcheck.close()
             #Now open the file and search the results for values wanted.
-            srvdata = open('smbsrv_check.txt', 'r')
+            srvdata = open('smbsrv_check.txt', 'r',encoding='utf-8')
             srvresults = srvdata.read()
             #just look for the string Srv2 for now.
             srvmatch = re.findall('Srv2', srvresults)
             if srvmatch:
-                write_console(str(srvdisabled))
-                write_log(str(srvdisabled))
+                log_event(str(srvdisabled),0,None,True)
+                # write_console(str(srvdisabled))
+                # write_log(str(srvdisabled))
             else:
+                log_event(str(srvwarning) + str(srvlog),1,None,True)
                 write_windows_eventlog("Artillery", 301, warning, False, None)
-                write_console(str(srvwarning) + str(srvprint))
-                write_log(str(srvwarning) + str(srvlog))
+                # write_console(str(srvwarning) + str(srvprint))
+                # write_log(str(srvwarning) + str(srvlog))
         srvdata.close()
         #SMBv1 Clientside component
         #use the strings from above because why not
@@ -434,22 +339,20 @@ def insecure_service_check():
             CliKeyValue = OpenKey(HKEY_LOCAL_MACHINE, CliKey)
             while True:
                 clisubkey = EnumValue(CliKeyValue, cli)
-                clicheck = open('smbcli_check.txt', 'a')
+                clicheck = open('smbcli_check.txt', 'a',encoding='utf-8')
                 clicheck.write(str(clisubkey))
                 cli += 1
         except WindowsError:
             clicheck.close()
-            clidata = open('smbcli_check.txt', 'r')
+            clidata = open('smbcli_check.txt', 'r',encoding='utf-8')
             cliresults = clidata.read()
             #just look for the string MRxSmb20 for now.
             climatch = re.findall('MRxSmb20', cliresults)
             if climatch:
-                write_console(str(clidisabled))
-                write_log(str(clidisabled))
+                log_event(str(clidisabled),0,None,True)
             else:
                 write_windows_eventlog("Artillery", 300, warning, False, None)
-                write_log(str(cliwarning) + str(clilog))
-                write_console(str(cliwarning) + str(cliprint))
+                log_event(str(cliwarning) + str(clilog),1,None,True)
         clidata.close()
         #Check for WinHTTP Web Proxy Auto-Discovery Service (wpad) being disabled
         try:
@@ -469,14 +372,11 @@ def insecure_service_check():
             #just look for the wpadoverride string for now.
             wpadmatch = re.findall('WpadOverride', wpadresults)
             if wpadmatch:
-                write_console("[*] Service Check: WPAD Override key is present")
-                write_log("[*] Service Check: WPAD Override key is present")
+                log_event("[*] Service Check: WPAD Override key is present",0,None,True)
             else:
                 write_windows_eventlog("Artillery", 302, warning, False, None)
-                write_console("[*] Service Check: WPAD overide key is not present. you will be vuln to MITM attacks")
-                write_log("[*] Service Check: WPAD overide key is not present. you will be vuln to MITM attacks")
+                log_event("[*] Service Check: WPAD overide key is not present. you will be vuln to MITM attacks",1,None,True)
         wpaddata.close()
-        #
         #check for LLMNR
         try:
             llmnrctr = 0
@@ -485,34 +385,31 @@ def insecure_service_check():
             try:
                 llmnrkeyvalue = OpenKey(HKEY_LOCAL_MACHINE, llmnrkey)
             except FileNotFoundError:
-                write_console("[*] Service Check: LLMNR key is not present skipping")
-                write_log("[*] Service Check: LLMNR key is not present skipping")
+                log_event("[*] Service Check: LLMNR key is not present skipping",0,None,True)
                 return
             #if we main find key iterate through dumping all values
             while True:
                 llmnrsubkey = EnumValue(llmnrkeyvalue, llmnrctr)
-                llmnrcheck = open('llmnr_check.txt', 'a')
+                llmnrcheck = open('llmnr_check.txt', 'a',encoding='utf-8')
                 llmnrcheck.write(str(llmnrsubkey))
                 llmnrctr += 1
         #catch error by default this key is not present which means it is enabled
         except WindowsError:
             llmnrcheck.close()
-            llmnrdata = open('llmnr_check.txt', 'r')
+            llmnrdata = open('llmnr_check.txt', 'r',encoding='utf-8')
             llmnrresults = llmnrdata.read()
             #just look for the multicast string for now.
             llmnrmatch = re.findall('EnableMulticast', llmnrresults)
             if llmnrmatch:
-                write_console("[*] Service Check: LLMNR key to disable multicast is present")
-                write_log("[*] LLMNR key to disable multicast is present")
+                log_event("[*] Service Check: LLMNR key to disable multicast is present",0,None,True)
             else:
                 write_windows_eventlog("Artillery",303, warning, False, None)
-                write_console("[*] Service Check: LLMNR key to disable multicast is not present. you might be vuln to MITM attacks")
-                write_log("[*] LLMNR key to disable multicast is not present. you might be vuln to MITM attacks")
+                log_event("[*] Service Check: LLMNR key to disable multicast is not present. you might be vuln to MITM attacks",0,None,True)
         llmnrdata.close()
         #remove files that were created to make sure we get consistant results
         #if we don't it will forever append the file and make it bigger.
         #to see what i dump comment these lines to keep files
-        path = str(globals.g_apppath)
+        path = settings.get_config('global',"APP_PATH")
         if os.path.isfile(path+"\\smbcli_check.txt"):
             subprocess.call(['cmd', '/C', 'del', path+"\\smbcli_check.txt"], shell=True)
             subprocess.call(['cmd', '/C', 'del', path+"\\smbsrv_check.txt"], shell=True)
@@ -583,16 +480,15 @@ def watch_directory_for_changes(Fpath,k=None):
 #
 def InstallDLL():
     def add_reg_entries():
-        '''Creates a subkey under the specified key and stores registration information from a specified file into that subkey.'''
+        '''Creates a subkey under the specified key and stores registration
+        information from a specified file into that subkey.'''
         evtlog_key = r'SYSTEM\CurrentControlSet\Services\EventLog\Application'
         sub_key = 'Artillery'
         file_name = r'src\windows\ArtilleryEvents.reg'
         print('[*] Adding Registry entries........')
         LoadKey(HKEY_LOCAL_MACHINE, evtlog_key, sub_key, file_name)
-    def copy_dll():
-        pass
-            #
-        #register dll with system
+    
+    #register dll with system
     add_reg_entries()
 
         #AddSourceToRegistry(appName = AppName, msgDLL = mymsgDLL, eventLogType = "Application", eventLogFlags = None):
@@ -600,5 +496,5 @@ def InstallDLL():
 #
 def UninstallDLL():
     """Removes a source of messages from the event log."""
-    RemoveSourceFromRegistry(appName = globals.g_appname, eventLogType = "Application")
-    print("[*] DLL entries removed from registry")
+    RemoveSourceFromRegistry(appName ="Artillery", eventLogType = "Application")
+    log_event("[*] DLL entries removed from registry",0,None,False)

@@ -2,13 +2,17 @@
 #
 # monitor ssh and ban
 #
+#this file fails to run with out changes
+import sys
 import time
 import re
 import os
-from src.config import monitor_frequency, ssh_brute_attempts, banlist, is_posix_os
-from src.core import write_log, write_console, is_valid_ipv4, is_whitelisted_ip, ban
-from src.email_handler import warn_the_good_guys
+from .core import is_posix, log_event, is_valid_ipv4, is_whitelisted_ip, ban,settings
+from .email_handler import *
 
+ssh_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
+banlist = settings.get_config("current","BANLIST")
+ssh_brute_attempts = settings.get_config("current", "SSH_BRUTE_ATTEMPTS")
 
 def ssh_monitor(monitor_frequency: int) -> None:
     counter = 0
@@ -35,13 +39,11 @@ def ssh_monitor(monitor_frequency: int) -> None:
             if counter == 0:
                 fileopen1 = open("/var/log/faillog", "r")
                 counter = 1
-
-        if not os.path.isfile(banlist):
-            # create a blank file
-            filewrite = open(banlist, "w")
-            filewrite.write("")
-            filewrite.close()
-
+        # if we have not found any logs then we stop
+        if counter == 0:
+            log_event("[*] No SSH logs found. SSH monitor now stops.", 2, None, False)
+            break
+        
         try:
             # base ssh counter to see how many attempts we've had
             ssh_counter = 0
@@ -75,24 +77,25 @@ def ssh_monitor(monitor_frequency: int) -> None:
                                 if whitelist_match == 0:
                                     subject = "[!] Artillery has banned an SSH brute force. [!]"
                                     alert = "Artillery has blocked (blacklisted) the following IP for SSH brute forcing violations: " + ipaddress
-                                    warn_the_good_guys(subject, alert)
-
+                                    #setup the email here with our class
+                                    #set the subject 
+                                    #set the alert
+                                    #write to the trigger file
                                     # do the actual ban, this is pulled from
-                                    # src.core
                                     ban(ipaddress)
                                     ssh_counter = 0
-
-                                    # wait one to make sure everything is
-                                    # caught up
+                                    # wait one to make sure everything is caught up
                                     time.sleep(1)
             # sleep for defined time
             time.sleep(monitor_frequency)
 
         except Exception as e:
-            print("[*] An error in ssh monitor occured. Printing it out here: " + str(e))
+            log_event(f"[*] An error in ssh monitor occured. Printing it out here: {str(e)}",2,None,False)
 
 
 def start_ssh_monitor():
-    if is_posix_os is True:
-        write_console("[*] Launching SSH Bruteforce monitor.")
+    if is_posix() and 'linux' or 'linux2' or 'darwin' in sys.platform:
+        monitor_frequency = "120"
+        log_event("[*] Launching SSH Bruteforce monitor.",0,None,True)
+        #write_console("[*] Launching SSH Bruteforce monitor.")
         ssh_monitor(int(monitor_frequency))

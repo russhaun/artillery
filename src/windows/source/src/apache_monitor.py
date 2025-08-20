@@ -1,7 +1,8 @@
-# 127.0.0.1 - - [10/Mar/2012:15:35:53 -0500] "GET /sdfsdfds.dsfds
-# HTTP/1.1" 404 501 "-" "Mozilla/5.0 (X11; Linux i686 on x86_64;
-# rv:10.0.2) Gecko/20100101 Firefox/10.0.2"
-from src.config import access_log_path, error_log_path, is_posix_os
+import sys
+from .core import settings,log_event
+from .email_handler import *
+
+apache_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
 
 
 def tail(some_file):
@@ -20,8 +21,9 @@ def start_apache_log_monitor():
     """
     Monitors Access and Error logs on apache servers
     """
-    if is_posix_os is True:
-        tail(access_log_path)
-        tail(error_log_path)
-    else:
-        return
+    if 'linux'or'linux2'or 'darwin' in sys.platform :
+        log_event("Monitoring apache logs",0,None,False)
+        #these will be threaded later
+        # tail(access_log_path)
+        # tail(error_log_path)
+        pass
