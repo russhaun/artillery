@@ -10,6 +10,8 @@ import shutil
 import sys
 import errno
 import argparse
+import traceback
+import types
 
 # Argument parse. Aimed to provide automatic deployment options
 interactive = True  # Flag to select interactive install, typically prompting user to answer [y/n]
@@ -20,31 +22,117 @@ if args.y:  # Check if non-interactive install argument is provided using an apt
     print("Running in non interactive mode with automatic \'yes\' selection")
     interactive = False
 
-# Check to see if we are admin
+#define some functions for use
 if 'win32' in sys.platform:
-    from src.pyuac import *
+    def isUserAdmin():
+        """@return: True if the current user is an 'Admin' whatever that
+            means (root on Unix), otherwise False.
+
+            Warning: The inner function fails unless you have Windows XP SP2 or
+            higher. The failure causes a traceback to be printed and this
+            function to return False.
+        """
+
+        if os.name == 'nt':
+
+           import ctypes
+        # WARNING: requires Windows XP SP2 or higher!
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin()
+        except:
+            traceback.print_exc()
+            print("Admin check failed, assuming not an admin.",flush=True)
+            return False
+        else:
+        # Check for root on Posix
+            return os.getuid() == 0
+
+
+    def runAsAdmin(cmdLine=None, wait=False):
+        """Attempt to relaunch the current script as an admin using the same
+            command line parameters.  Pass cmdLine in to override and set a new
+             command.  It must be a list of [command, arg1, arg2...] format.
+
+            Set wait to False to avoid waiting for the sub-process to finish. You
+            will not be able to fetch the exit code of the process if wait is
+            False.
+
+             Returns the sub-process return code, unless wait is False in which
+             case it returns None.
+
+             @WARNING: this function only works on Windows.
+        """
+
+        if os.name != 'nt':
+                
+                #raise RuntimeError, ("This function is only implemented on Windows.")
+                #print("This function is only implemented on Windows.")
+            raise RuntimeError("This function is only implemented on Windows.")
+        import win32api
+        import win32con
+        import win32event
+        import win32process
+        from win32com.shell.shell import ShellExecuteEx
+        from win32com.shell import shellcon
+
+        python_exe = sys.executable
+
+        if cmdLine is None:
+            cmdLine = [python_exe] + sys.argv
+        elif type(cmdLine) not in (types.TupleType, types.ListType):
+            raise ValueError("cmdLine is not a sequence.")
+        cmd = '"%s"' % (cmdLine[0],)
+            # XXX TODO: isn't there a function or something we can call to massage command line params?
+        params = " ".join(['"%s"' % (x,) for x in cmdLine[1:]])
+        cmdDir = ''
+        showCmd = win32con.SW_SHOWNORMAL
+        lpVerb = 'runas'  # causes UAC elevation prompt.
+
+            # print "Running", cmd, params
+
+            # ShellExecute() doesn't seem to allow us to fetch the PID or handle
+            # of the process, so we can't get anything useful from it. Therefore
+            # the more complex ShellExecuteEx() must be used.
+
+            # procHandle = win32api.ShellExecute(0, lpVerb, cmd, params, cmdDir, showCmd)
+
+        procInfo = ShellExecuteEx(nShow=showCmd,
+                                fMask=shellcon.SEE_MASK_NOCLOSEPROCESS,
+                                lpVerb=lpVerb,
+                                lpFile=cmd,
+                                lpParameters=params)
+
+        if wait:
+            procHandle = procInfo['hProcess']
+            obj = win32event.WaitForSingleObject(procHandle, win32event.INFINITE)
+            rc = win32process.GetExitCodeProcess(procHandle)
+            #print "Process handle %s returned code %s" % (procHandle, rc)
+        else:
+            rc = None
+
+        return rc
+    #
     if not isUserAdmin():
         runAsAdmin()  # will try to relaunch script as admin will prompt for user\pass and open in seperate window
         sys.exit(1)
     if isUserAdmin():
-        print('''
-Welcome to the Artillery installer. Artillery is a honeypot, file monitoring, and overall security tool used to protect your nix systems.
-
-Written by: Dave Kennedy (ReL1K)
-''')
-#setup some constants
+        print('''   
+            Welcome to the Artillery installer.\n\n Artillery is a honeypot, file monitoring, and overall security tool\n used to protect your nix and windows systems using various methods.
+                Written by: Dave Kennedy (ReL1K)
+    ''')
+    #setup some constants
     SRC_PATH = os.getcwd()
     PROGRAM_FILES = os.environ["PROGRAMFILES(X86)"]
-    INSTALL_PATH = PROGRAM_FILES + "\\Artillery"
+    INSTALL_PATH = os.path.join(PROGRAM_FILES, "Artillery")
     #create loop for install/uninstall not perfect but works saves answer for next step
-    if not os.path.isfile(INSTALL_PATH+"\\artillery.py"):
+    if not os.path.isfile(os.path.join(INSTALL_PATH,"artillery.py")):
         if interactive:
             answer = input("[*] Do you want to install Artillery [y/n]: ")
         else:
             answer = 'y'
     #if above is false it must be installed so ask to uninstall
     else:
-        if os.path.isfile(INSTALL_PATH + "\\artillery.py") and interactive:
+        if os.path.isfile(os.path.join(INSTALL_PATH,"artillery.py")) and interactive:
             #print("[*] [*] If you would like to uninstall hit y then enter")
             answer = input("[*] Artillery detected. Do you want to uninstall [y/n:] ")
         else:
@@ -63,11 +151,10 @@ if ('linux' or 'linux2' or 'darwin') in sys.platform:
         if (e.errno == errno.EACCES or e.errno == errno.EPERM):
             print("You must be root to run this script!\r\n")
         sys.exit(1)
-    print('''
-Welcome to the Artillery installer. Artillery is a honeypot, file monitoring, and overall security tool used to protect your nix systems.
-
-Written by: Dave Kennedy (ReL1K)
-''')
+    print('''   
+            Welcome to the Artillery installer.\n\n Artillery is a honeypot, file monitoring, and overall security tool\n used to protect your nix and windows systems using various methods.
+                Written by: Dave Kennedy (ReL1K)
+    ''')
 #if we are root create loop for install/uninstall not perfect but works saves answer for next step
     if not os.path.isfile("/etc/init.d/artillery"):
         if interactive:
@@ -76,6 +163,7 @@ Written by: Dave Kennedy (ReL1K)
             answer = 'y'
     #if above is true it must be installed so ask to uninstall
     else:
+        #should we check for artillery.py instead?
         if os.path.isfile("/etc/init.d/artillery") and interactive:
             answer = input("[*] Artillery detected. Do you want to uninstall [y/n:] ")
         else:
@@ -86,16 +174,12 @@ Written by: Dave Kennedy (ReL1K)
 
 if answer.lower() in ["yes", "y"]:
     if ('linux' or 'linux2' or 'darwin') in sys.platform:
-        #kill_artillery()
-
         print("[*] Beginning installation. This should only take a moment.")
-
-        # if directories aren't there then create them
-        #make root check folder here. Only root should
-        #be able to create or delete this folder right?
-        # leave folder for future installs/uninstall?
+        #replace root_check folder
         if not os.path.isdir("/var/artillery_check_root"):
             os.makedirs("/var/artillery_check_root")
+        #these folders below can be created after base files are present
+        #either from git clone or copying from this installer they will be moved at a later date
         if not os.path.isdir("/var/artillery/database"):
             os.makedirs("/var/artillery/database")
         if not os.path.isdir("/var/artillery/src/program_junk"):
@@ -129,12 +213,39 @@ if answer.lower() in ["yes", "y"]:
     #also updated location to be the same accross all versions of Windows
     if 'win32' in sys.platform:
         shutil.copytree(SRC_PATH, INSTALL_PATH)
-        os.makedirs(INSTALL_PATH + "\\logs")
-        os.makedirs(INSTALL_PATH + "\\database")
-        os.makedirs(INSTALL_PATH + "\\src\\program_junk")
+        os.makedirs(os.path.join(INSTALL_PATH, "logs"))
+        os.makedirs(os.path.join(INSTALL_PATH,"database"))
+        os.makedirs(os.path.join(INSTALL_PATH,"src","program_junk"))
+        #because artillery ships with no config write out base file
+        #(just the header)so when artillery runs something is there
+        #it will populate itself.this will be broken out so both platforms 
+        # can use it
+        conf_file = os.path.join(INSTALL_PATH,"config")
+        #setup our banner
+        banner = "#############################################################################################\n"
+        banner += "#\n"
+        banner += "# This is the Artillery configuration file. Change these variables and flags to change how\n"
+        banner += "# this behaves.\n"
+        banner += "#\n"
+        banner += "# Artillery written by: Dave Kennedy (ReL1K)\n"
+        banner += "# Website: https://www.binarydefense.com\n"
+        banner += "# Email: info [at] binarydefense.com\n"
+        banner += "# Download: git clone https://github.com/binarydefense/artillery artillery/\n"
+        banner += "# Install: python setup.py\n"
+        banner += "#\n"
+        banner += "#############################################################################################\n"
+        banner += "#\n"
+        #we kow its not there just create it
+        with open(file=conf_file,mode="x",encoding="utf-8") as conf:
+            conf.write(banner)
+        #create firewall rules,shorcuts here?
+        
 
     if ('linux' or 'linux2' or 'darwin') in sys.platform:
         if interactive:
+            #this seems a little out of place if we just downloaded this were already on
+            # latest. this will be changed to a config flag in future we will just copy over 
+            #like on windows to be consistent
             choice = input("[*] Do you want to keep Artillery updated? (requires internet) [y/n]: ")
         else:
             choice = 'y'
@@ -146,10 +257,12 @@ if answer.lower() in ["yes", "y"]:
             subprocess.Popen(
                 "git clone https://github.com/binarydefense/artillery /var/artillery/", shell=True).wait()
             print("[*] Finished. If you want to update Artillery go to /var/artillery and type 'git pull'")
+            #would create extra folders here
         else:
             print("[*] Copying setup files over...")
             subprocess.Popen("cp -rf * /var/artillery/", shell=True).wait()
-
+            #would create extra folders here
+        #would create base config here
         # if os is Mac Os X than create a .plist daemon - changes added by
         # contributor - Giulio Bortot
         if os.path.isdir("/Library/LaunchDaemons"):
@@ -177,6 +290,7 @@ if answer.lower() in ["yes", "y"]:
         if 'win32' in sys.platform:
             os.chdir("src\\windows")
             #copy over banlist
+            #this will be removed
             os.system("start cmd /K banlist.bat")
             #Wait to make sure banlist is copied over
             time.sleep(2)
@@ -202,20 +316,18 @@ if answer == "uninstall":
             os.remove("/etc/init.d/artillery")
             subprocess.Popen("rm -rf /var/artillery", shell=True)
             subprocess.Popen("rm -rf /etc/init.d/artillery", shell=True)
-            #added to remove service files on kali2
-            #subprocess.Popen("rm /lib/systemd/system/artillery.service", shell=True)
-            #kill_artillery()
             print("[*] Artillery has been uninstalled. Manually kill the process if it is still running.")
     #Delete routine to remove artillery on windows.added uac check
     if 'win32' in sys.platform:
         if not isUserAdmin():
             runAsAdmin()
         if isUserAdmin():
+            #delete firewall rules,shortcuts and startup task (if exists)
             #remove program files
             subprocess.call(['cmd', '/C', 'rmdir', '/S', '/Q', INSTALL_PATH])
             #del uninstall cache
             os.chdir("src\\windows")
             os.system("start cmd /K del_cache.bat")
-            #just so they can see this message slleep a sec
+            #just so they can see this message sleep a sec
             print("[*] Artillery has been uninstalled.\n[*] Manually kill the process if it is still running.")
             time.sleep(3)
