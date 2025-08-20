@@ -185,12 +185,13 @@ def write_source_code():
         subprocess.run(['cmd', '/C', 'copy', 'dll_reg.bat', WINSRCDIR],stdout=subprocess.DEVNULL)
         print("[*] Done.....")   
     os.chdir(HOME)
+    #removed from setup 6/23/25
     if os.path.isfile(HOOKFILE):
         print("[*] Copying hook file.....")
         os.chdir('hooks')
         subprocess.run(['cmd', '/C', 'copy', HOOKFILE, HOOKSPATH],stdout=subprocess.DEVNULL)
         print("[*] Done.....")
-    os.chdir(HOME)
+    #os.chdir(HOME)
     if os.path.isfile("database\\temp.database"):
         print("[*] Copying database file.....")
         os.chdir('database')
@@ -229,12 +230,10 @@ def write_source_code():
 #
 bin_files = []
 win_dll_path = ['C:\\Program Files (x86)\\Windows Kits\\10\\Redist\\10.0.19041.0\\ucrt\\DLLs\\x64']
-pyqt5_dll_path = [HOMEPATH + '\\pyqt5\\qt\\bin\\']
 hooks_dir = [HOME+'\\hooks']
 print("[*] Done setting up variables.....")
 print("############################################################################################")
 print("[*] Setting up file data.....")
-UI_PYFILES =[('ArtilleryUI.py', '.')]
 CONSOLE_PY_FILES = [('Artillery.py','.')]
 SRCFILES = [('src\\*.py', 'src\\')]
 WINDOWSFILES = [('src\\windows\\*.txt','src\\windows'),('src\\windows\\*.bat', 'src\\windows')]
@@ -244,38 +243,8 @@ bin_icon =[('src\\icons\\*.ico', 'src\\icons'),
             ('src\\windows\\*.dll', 'src\\windows')
             ]
 print("[*] Done with file data.....")
+#these will be built with merge in future instead of individual files to reduce overall size of package
 print("############################################################################################")
-if BUILDUI: #file is not ready for release yet so this will return false for now
-    print("[*] Building ArtilleryUI.exe")
-    ui = Analysis(['ArtilleryUI.py'],
-                pathex= win_dll_path + pyqt5_dll_path,
-                binaries=bin_icon,
-                datas=UI_PYFILES+icons+WINDOWSFILES+SRCFILES,
-                hiddenimports=['resource', 'smtplib', 'logging.handlers', 'win32com', 'win32com.shell', 'win32com.shell.shell', 'win32com.shell.shellcon.', 'win32process', 'win32security', 'win32event'],
-                hookspath=hooks_dir,
-                runtime_hooks=[],
-                excludes=[],
-                win_no_prefer_redirects=False,
-                win_private_assemblies=False,
-                cipher=block_cipher,
-                noarchive=False)
-    ui_pyz = PYZ(ui.pure, ui.zipped_data,
-                cipher=block_cipher)
-    ui_exe = EXE(ui_pyz,
-            ui.scripts,
-            ui.binaries,
-            ui.zipfiles,
-            ui.datas,
-            icon = 'src\\icons\\toast_events_icon.ico',
-            name='ArtilleryUI',
-            debug=False,
-            bootloader_ignore_signals=False,
-            strip=False,
-            upx=True,
-            runtime_tmpdir=None,
-            console=False )
-    print("[!] Done building ArtilleryUI.exe")
-#print("###############################################################################")
 print("[*] Building Artillery.exe")
 console = Analysis(['Artillery.py'],
              pathex= win_dll_path,
@@ -295,7 +264,7 @@ console_exe = EXE(console_pyz,console.scripts,
           console.binaries,
           console.zipfiles,
           console.datas,
-          icon = 'src\\icons\\toast_events_icon.ico',
+          icon = 'src\\icons\\bd_icon.ico',
           name='Artillery',
           debug=False,
           bootloader_ignore_signals=False,
@@ -325,7 +294,7 @@ restart_exe = EXE(restart_pyz,
           restart.binaries,
           restart.zipfiles,
           restart.datas,
-          icon = 'src\\icons\\toast_events_icon.ico',
+          icon = 'src\\icons\\bd_icon.ico',
           name='Restart',
           debug=False,
           bootloader_ignore_signals=False,
@@ -355,7 +324,7 @@ remove_exe = EXE(remove_pyz,
           remove.binaries,
           remove.zipfiles,
           remove.datas,
-          icon = 'src\\icons\\toast_events_icon.ico',
+          icon = 'src\\icons\\bd_icon.ico',
           name='UnBan',
           debug=False,
           bootloader_ignore_signals=False,

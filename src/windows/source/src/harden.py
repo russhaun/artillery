@@ -4,11 +4,13 @@
 #
 import re
 import os
-from src.config import harden_check, ssh_root_check_enabled, ssh_default_port_check_enabled, is_posix_os, is_windows_os
-from src.email_handler import warn_the_good_guys
-from src.core import *
-if is_windows_os is True:
-    from src.win_func import insecure_service_check
+import sys
+from .core import *
+from .email_handler import *
+
+#harden_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
+if 'win32' in sys.platform:
+    from .win_func import insecure_service_check
 # flag warnings, base is nothing
 warning = ""
 
@@ -81,18 +83,19 @@ def linux_harden_check():
         #
         if len(warning) > 1:
             subject = "[!] Insecure configuration detected on filesystem: "
-            warn_the_good_guys(subject, subject + warning)
+            #this is where email is dealt with
+            #warn_the_good_guys(subject, subject + warning)
 
 
 def hardening_checks():
-    if harden_check is True:
-        write_console("[*] Checking system hardening.")
-        write_log("[*] Checking system hardening.")
-        if is_windows_os is True:
-            write_console('[*] Loading service checks.....')
-            write_log('[*] Loading service checks.....')
-            insecure_service_check()
-        if is_posix_os is True:
-            write_console('[*] Loading service checks.....')
-            write_log('[*] Loading service checks.....')
-            linux_harden_check()
+    '''
+    runs certain hardening checks on windows systems for WPAD\LLMNR\SMBv1
+    '''
+    log_event("[*] Checking system hardening.",0,None,True)
+    if 'win32' in sys.platform:
+        log_event('[*] Loading service checks.....',0,None,False)
+        insecure_service_check()
+    if is_posix():
+        write_console('[*] Loading service checks.....')
+        write_log('[*] Loading service checks.....')
+        linux_harden_check()

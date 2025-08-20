@@ -46,7 +46,7 @@ def isUserAdmin():
             return ctypes.windll.shell32.IsUserAnAdmin()
         except:
             traceback.print_exc()
-            print("Admin check failed, assuming not an admin.")
+            print("Admin check failed, assuming not an admin.",flush=True)
             return False
     else:
         # Check for root on Posix
