@@ -85,6 +85,12 @@ def get_pid() -> None:
     """
     p_id = GetCurrentProcessId()
     log_event(f"[*] Current ProcessId: {str(p_id)}",0,None,False)
+    if not os.path.isfile("pid.txt"):
+        with open(file="pid.txt",mode="x",encoding="utf-8") as pid:
+            pid.write(str(p_id))
+    else:
+        with open(file="pid.txt",mode="w",encoding="utf-8") as pid:
+            pid.write(str(p_id))
     return
 #Artillery version info
 ####################################################################################

@@ -100,9 +100,8 @@ def restart_artillery_win():
         time.sleep(1)
         try:
             if os.path.isdir(EXE_PATH):
-                binary = PureWindowsPath(EXE_PATH, EXE_FILE)
                 #opens exe in seperate window
-                subprocess.Popen([str(binary)], creationflags=subprocess.CREATE_NEW_CONSOLE)
+                os.system(f"start cmd /K artillery_start.bat")
                 return
             else:
                 pause = input('[*] artillery_start.bat was not found. Please make sure the file exists.\n[*] Press enter to continue')
@@ -113,10 +112,8 @@ def restart_artillery_win():
         time.sleep(3)
         try:
             if os.path.isdir(EXE_PATH):
-                binary = PureWindowsPath(EXE_PATH, EXE_FILE)
                 #opens exe in seperate window
-                subprocess.Popen([str(binary)], creationflags=subprocess.CREATE_NEW_CONSOLE)
-                return
+                os.system("start cmd /K artillery_start.bat")
             else:
                 pause = input('[*] artillery_start.bat was not found. Please make sure the file exists.\n[*] Press enter to continue')
         except FileNotFoundError as e:
