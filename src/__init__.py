@@ -7,14 +7,11 @@
 ##THIS FILE WILL FUNCTION AS GLOBALS.PY DID IN PREVIOUS VERSIONS WITHOUT THE NEED FOR A SEPARATE FILE
 ##OR THE USE OF THE GLOBAL KEYWORD ,THESE SETTINGS WILL BE USED THROUGHOUT THE APPLICATION
 ##for now this will be used to load the config file and get the values
+import os
 from .config import *
 settings = ConfigMgr()
 
-
-##THESE OPTIONS WILL BE CYCLED IN OVER TIME TO REPLACE THE OLD GLOBALS.PY FILE
-##THIS WILL ALLOW FOR EASIER CONFIGURATION AND MANAGEMENT OF ARTILLERY SETTINGS
-##THIS IS NOT COMPLETED YET AND WILL BE UPDATED OVER TIME,
-#  THESE ENTRIES ARE JUST TO SHOW WHERE THIS FILE IS GOING THEY ARE NOT IN USE YET
+#
 __VERSION__ = "3.0.0"
 __AUTHOR__ = "Dave Kennedy (ReL1K) @HackingDave"
 __EMAIL__ = ""
@@ -22,21 +19,5 @@ __DESCRIPTION__ = "An active honeypotting tool and threat intelligence feed"
 __COPYRIGHT__ = "Copyright (c) 2025 Artillery Team"
 __LICENSE__ = "BSD"
 __URL__ = "https://www.binarydefense.com"
-#GLOBAL SETTINGS
-__APPNAME__ = "Artillery - Advanced Threat Detection"
-__APPPATH__ = ""
-__APPFILE__ = ""
-__ALERTLOG__ = ""
-__BANLIST__ = ""
-__EXCEPTIONLOG__ = ""
-__LOCALBANLIST__ = ""
-__HOSTNAME__ = ""
-__HOSTOS__ = ""
-##CONFIG FILE SETTINGS
-__HONEYPOT_ENABLED__ = ""
-__FOLDER_MONITOR_ENABLED__ = ""
-__SSH_MONITOR_ENABLED__ = ""
-__APACHE_MONITOR_ENABLED__ = ""
-__UPDATE_ENABLED__ = ""
 
 
