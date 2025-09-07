@@ -1,27 +1,30 @@
 #!/usr/bin/python
 #
-# this is the honeypot stuff
+# this is the honeypot stuff. this will morph and change over time as i work in features,
+#including packet capture, whois, geo-ip info of attacker as well as custom responses based
+# on server port and type:))))
 # 
-#
-import sys
-import _thread as thread
-import socket
-from socket import socket as _socket
-import time
-import socketserver as SocketServer
-import os
-import random
-import datetime
-from .core import *
-import traceback
+#left to show whats imported
+#import socketserver as SocketServer
+#from socket import socket as _socket
+#import sys
+#import socket
+#import time
+#import os
+#import random
+#import datetime
+#import traceback
+#import threading
+
+from .core import sys,socket,time,os,random,datetime,traceback,threading,SocketServer,_socket,log_event,is_posix,is_windows,is_whitelisted_ip,is_already_banned,is_valid_ipv4,does_line_exist,settings
 from .email_handler import *
-from threading import Thread
+
 
 
 honeypot_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
 #this is the delay on how often email handler will check the trigger file
 delay_timer = settings.get_config('current','EMAIL_FREQUENCY')
-SYSTRAY_ENABLED = True
+SYSTRAY_ENABLED = False
 SYSTRAY_MSG_ACTVE = False
 ALERTS_PENDING = False
 #hardcoded for now
@@ -97,6 +100,7 @@ class TCP4Server((SocketServer.ThreadingTCPServer)):
             else:
                 log_event(f"[!] Connection from a whitelisted  ip: {ip} on tcp port: {srv_port}",1,None,True)
                 self.reason = "WHITELISTED"
+        #should never hit this
         else:
             log_event(f"[!] Connection from an invalid ip: {ip} on tcp port: {srv_port}",1,None,True)
             self.reason = "INVALID IP"
@@ -112,7 +116,7 @@ class TCP4Server((SocketServer.ThreadingTCPServer)):
             #ip and responding port
             ip, resport = str(address[0]), str(address[1])
             try:
-                Thread(target=self.client_thread, args=(connection, ip, port,reason)).start()
+                threading.Thread(target=self.client_thread, args=(connection, ip, port,reason)).start()
             except:
                 log_event("[*] Thread did not start.",0,None,False)
                 traceback.print_exc()
@@ -273,7 +277,7 @@ class UDP6Server((SocketServer.ThreadingUDPServer)):
     def handle_error(self, request, client_address):
         log_event(f"client {client_address} had an error {str(request)}",1,None,True)
 
-    def close_request(self, request: _socket | tuple[bytes, socket]) -> None:
+    def close_request(self, request: _socket | tuple[bytes, _socket]) -> None:
         return super().close_request(request)
     
     def handle_request(self) -> None:
@@ -411,10 +415,8 @@ def main(tcpports, udpports, bind_interface):
             port_availible = check_open_port(tport, "TCP", bind_interface)
             if port_availible is True:
                 open_tcp.append(tport)
-                #write_log(f"[*] Set up listener for tcp port {tport}")
                 time.sleep(.5)
-                #thread.start_new_thread(sniffer, (host,bind_interface,'TCP',tport))
-                thread.start_new_thread(listentcp_server, (tport, bind_interface,))
+                threading.Thread(group=None,target=listentcp_server,args=(tport, bind_interface),daemon=True).start()
             else:
                 closed_tcp.append(tport)
     #
@@ -428,8 +430,7 @@ def main(tcpports, udpports, bind_interface):
             if port_availible is True:
                 open_udp.append(uport)
                 time.sleep(.5)
-                #thread.start_new_thread(sniffer, (host,bind_interface,'TCP', tport))
-                thread.start_new_thread(listenudp_server, (uport, bind_interface,))
+                threading.Thread(group=None,target=listenudp_server,args=(uport, bind_interface),daemon=True).start()
             else:
                 closed_udp.append(uport)
     #
@@ -472,11 +473,8 @@ def main(tcpports, udpports, bind_interface):
         if tcp_bind_error is False and udp_bind_error is True:
             bind_error = f"Artillery was unable to bind to {str(failed_udp)} UDP port/ports: {str(closed_udp)} This could be due to an active port in use."
         log_event(f"{bind_error}", 2,None,False)
-        #write_log(f"{bind_error}", 2)
-        #warn_the_good_guys(subject, bind_error)
-        #clear exception log
-        # with open(exceptionlog, "r+") as log:
-        #     log.truncate(0)
+        #call email from here
+        #this will only produce 1 msg at runtime to send yay!!!
     if tcp_bind_success or udp_bind_success is True:
         subject = "Set up listener on some ports"
         if tcp_bind_success and udp_bind_success is True:
@@ -513,7 +511,7 @@ def check_for_alerts():
             honeypot_email_ip = KNOWN_IPS[0]
             honeypot_email_port = TOUCHED_PORTS[0]
             systray_msg = ''
-            #if email alerts is turned on
+            #if email alerts are turned on
             if settings.is_config_enabled('EMAIL_ALERTS') == True:
                 #write email trigger has its own timer
                 trigger_src = settings.get_config('global','LOG_FILE')
@@ -542,8 +540,10 @@ def check_for_alerts():
                         pass
                     else:
                         #ban from here this solves the dupe issue
+                        #will probably use banlist_add_line() function
+                        #as it has a check for if the line is present
+                        #and re-work this section
                         ban(item)
-                        #print(f"ip {item} is not in file adding",flush=True)
                 #
             #
             #when were finished set ALERTS_PENDING to False
@@ -568,8 +568,8 @@ def start_honeypot():
     """
     #write_console("[*] Starting honeypot.")
     log_event("[*] Launching honeypot.", 0, None,console=True)
-    Thread(target=main,args=(settings.get_config("current","TCPPORTS"),settings.get_config("current","UDPPORTS"),settings.get_config("current","BIND_INTERFACE"))).start()
-    Thread(target=check_for_alerts,args=()).start()
+    threading.Thread(target=main,args=(settings.get_config("current","TCPPORTS"),settings.get_config("current","UDPPORTS"),settings.get_config("current","BIND_INTERFACE"))).start()
+    threading.Thread(target=check_for_alerts,args=()).start()
     if settings.is_config_enabled('EMAIL_ALERTS') == True:
         honeypot_email_logger.set_trigger_file('hptrigger.txt')
-        Thread(honeypot_email_logger.check_pending_msgs, ()).start()
+        threading.Thread(honeypot_email_logger.check_pending_msgs, ()).start()
