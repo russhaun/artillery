@@ -8,21 +8,14 @@
 #
 ################################################################################
 #
-import signal
-import time
-import sys
-import os
-import _thread as thread
-import argparse
-import errno
 
-from src.core import is_windows,is_posix, check_banlist_path,settings,log_event
+from src.core import threading,os,sys,time,signal,argparse,errno,is_windows,is_posix,settings,log_event,set_console_title, set_console_icon, current_version, freeze_check,get_pid,get_os,create_firewall_rules
 
 #
-if 'win32' in sys.platform:
-    from src.pyuac import isUserAdmin, runAsAdmin
-    from src.win_func import get_pid, get_title, get_os, current_version, freeze_check
-    from src.event_log import write_windows_eventlog, info
+if is_windows():
+    from src.core import win32evtlog,write_windows_eventlog,isUserAdmin,runAsAdmin
+    #from src.pyuac import isUserAdmin, runAsAdmin
+    #from src.event_log import info
 #################################################################################
 
 
@@ -39,133 +32,110 @@ class MainWindow():
         self.windowname = "Artillery - Advanced Threat Detection"
         self.appname = settings.get_config('global','APP_NAME')
         self.apppath = settings.get_config('global','APP_PATH')
+        self.icon_path = settings.get_config('global','ICON_PATH')
         self.configfile = settings.get_config('global','CONFIG_FILE')
         self.logfile = settings.get_config('global','ALERT_LOG')
         self.banlist = settings.get_config('global','BANLIST')
         self.running_threads = []
 
     #
-    #
+    
     def run(self):
         """runs final class object with configured settings"""
-        if is_windows():
-            FILE_PATH = freeze_check()
-            log_event(f"[*] Artillery is running from {FILE_PATH}",0,None,False)
-            get_title(self.windowname)
-            current_version()
-            get_os()
-            get_pid()
-        # if is_posix():
-        #     if not os.path.isdir(globals.g_apppath + "/database/"):
-        #         os.makedirs(globals.g_apppath + "/database/")
-        #     if not os.path.isfile(globals.g_apppath + "/database/temp.database"):
-        #         filewrite = open(globals.g_apppath + "/database/temp.database", "w")
-        #         filewrite.write("")
-        #         filewrite.close()
-        #
+        FILE_PATH = freeze_check()
+        log_event(f"[*] Artillery is running from {FILE_PATH}",0,None,False)
+        set_console_title(self.windowname)
+        current_version()
+        get_os()
+        get_pid()
+        set_console_icon(self.windowname,os.path.join(self.icon_path,"bd_icon.ico"))
+        
         self.load_services_as_thread()
-
-    def kill_running_threads(self):
-        """
-        kills all running threads. used during shutdown to clean up active threads.
-        """
-        pass
 
     def shutdown(self):
         """calls sys.exit() and closes software"""
-        log_event("[!] Ctrl-C Detected! Closing down.",1,None,True)
-        log_event("[!] Exiting Artillery... hack the gibson.",1,None,True)
+        if is_windows():
+            write_windows_eventlog("Artillery",101,win32evtlog.EVENTLOG_INFORMATION_TYPE,False,None,None)
+        log_event("[!] Ctrl-C Detected! Closing down.",0,None,True)
+        log_event("[!] Exiting Artillery... hack the gibson.",0,None,True)
         time.sleep(5)
-        #kill any threads here
-        
-        #self.kill_running_threads()
         sys.exit()
 
     def load_services_as_thread(self):
         """
         Starts load_services() in a thread.
         """
-        loadid = thread.start_new_thread(self.load_services, ())
-        self.running_threads.append(loadid)
+        threading.Thread(group=None,target=self.load_services,args=(),daemon=True).start()
 
     def load_services(self) -> None:
         """
             Loads all availible services depending on config returned
         all values are retrieved from config.py where all config
-        checks are performed.the use of start_new_thread() in the future
-        will be removed in favor of the more current Thread availible in py3.
+        checks are performed. this will be modified even further at some point
         """
-        #this function on windows is uneeded 
-        # as the way the banlist is created
-        # it is always present will be removed in future
-        check_banlist_path()
 
-        #if we are running posix then lets create a new iptables chain
+        #   if we are running posix then lets create a new iptables chain
+        # should we only set this up if banning is enabled?
+        # this should be done later in process will be moved
         if is_posix():
-            from src.core import create_iptables_subset
             time.sleep(2)
             log_event("[*] Creating iptables entries, hold on.",0,None,True)
-            create_iptables_subset()
+            create_firewall_rules()
             log_event("[*] iptables entries created.",0,None,True)
         #update artillery
         if settings.is_config_enabled("AUTO_UPDATE") == True:
             from src.core import update
-            updateid = thread.start_new_thread(update, ())
-            self.running_threads.append(updateid)
+            threading.Thread(group=None,target=update,args=(),daemon=True).start()
         #start anti_dos
         if settings.is_config_enabled("ANTI_DOS") == True:
             from src.anti_dos import start_anti_dos
-            antidosid = thread.start_new_thread(start_anti_dos, ())
-            self.running_threads.append(antidosid)
+            threading.Thread(group=None,target=start_anti_dos,args=(),daemon=True).start()
         #spawn honeypot
         if settings.is_config_enabled("ENABLE_HONEYPOT") == True:
             from src.honeypot import start_honeypot
-            thread.start_new_thread(start_honeypot, ())
+            threading.Thread(group=None,target=start_honeypot,args=(),daemon=True).start()
         #start ssh monitor
         if settings.is_config_enabled("SSH_BRUTE_MONITOR") == True:
             from src.ssh_monitor import start_ssh_monitor
-            thread.start_new_thread(start_ssh_monitor, ())
+            threading.Thread(group=None,target=start_ssh_monitor,args=(),daemon=True).start()
         #start ftp monitor
         if settings.is_config_enabled("FTP_BRUTE_MONITOR") == True:
             from src.ftp_monitor import start_ftp_monitor
-            thread.start_new_thread(start_ftp_monitor, ())
+            threading.Thread(group=None,target=start_ftp_monitor,args=(),daemon=True).start()
         #start monitor engine
         if settings.is_config_enabled("MONITOR") == True:
-            if is_posix():
-                from src.monitor import start_monitor
-                thread.start_new_thread(start_monitor, ())
-            if is_windows():
-                from src.monitor import watch_folders
-                thread.start_new_thread(watch_folders, ())
+            from src.monitor import monitor_start
+            threading.Thread(group=None,target=monitor_start,args=(),daemon=True).start()
         # check system hardening
         if settings.is_config_enabled("SYSTEM_HARDENING") == True:
             from src.harden import hardening_checks
-            thread.start_new_thread(hardening_checks, ())
+            threading.Thread(group=None,target=hardening_checks,args=(),daemon=True).start()
         # check to see if we are a threat server or not
         if settings.is_config_enabled("THREAT_SERVER") == True:
             from src.core import threat_server
-            thread.start_new_thread(threat_server, ())
+            threading.Thread(group=None,target=threat_server,args=(),daemon=True).start()
         #recycle banlist if enabled
         #honestly this function isn't even needed. 
         #the banlist is completly re-written on update
+        #and that time is every 24 hrs
         if settings.is_config_enabled("RECYCLE_IPS") == True:
-            from src.core import refresh_log
-            thread.start_new_thread(refresh_log, ())
+            from src.core import refresh_banlist
+            threading.Thread(group=None,target=refresh_banlist,args=(),daemon=True).start()
         #start apache monitor
         if settings.is_config_enabled("APACHE_MONITOR") == True:
             from src.apache_monitor import start_apache_log_monitor
-            thread.start_new_thread(start_apache_log_monitor, ())
+            threading.Thread(group=None,target=start_apache_log_monitor,args=(),daemon=True).start()
         #pull additional source feeds from external parties other than 
         if settings.is_config_enabled("SOURCE_FEEDS") == True:
             from src.core import pull_source_feeds
-            thread.start_new_thread(pull_source_feeds, ())
+            threading.Thread(group=None,target=pull_source_feeds,args=(),daemon=True).start()
         #
         log_event(f"[*] Artillery has started.",0,None,True)
         log_event(f"[*] Console logging enabled.",0,None,True)
         log_event(f"[*] Use Ctrl+C to exit.",0,None,True)
         #this will be moved into syslog function in future and called with log_event
         if is_windows():
-            write_windows_eventlog('Artillery', 100, info, False, None)
+            write_windows_eventlog('Artillery', 100, win32evtlog.EVENTLOG_INFORMATION_TYPE, False, None,msg=None)
 
 def master_timer():
     """This function sleeps for the max that time.sleep() allows in a loop
@@ -210,7 +180,7 @@ def admin_check(app: str) -> None:
         except OSError as err:
             if (err.errno == errno.EACCES or err.errno == errno.EPERM):
                 
-                print("[*] You must be root to run this script!\r\n",flush=True)
+                log_event("[*] You must be root to run this script!\r\n",0,None,True)
                 sys.exit(1)
         else:
             #if root run app
