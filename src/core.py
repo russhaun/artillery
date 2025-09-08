@@ -137,139 +137,139 @@ if is_windows():
             return os.getuid() == 0
 
 
-def runAsAdmin(cmdLine=None, wait=False):
-    """Attempt to relaunch the current script as an admin using the same
-    command line parameters.  Pass cmdLine in to override and set a new
-    command.  It must be a list of [command, arg1, arg2...] format.
+    def runAsAdmin(cmdLine=None, wait=False):
+        """Attempt to relaunch the current script as an admin using the same
+        command line parameters.  Pass cmdLine in to override and set a new
+        command.  It must be a list of [command, arg1, arg2...] format.
 
-    Set wait to False to avoid waiting for the sub-process to finish. You
-    will not be able to fetch the exit code of the process if wait is
-    False.
+        Set wait to False to avoid waiting for the sub-process to finish. You
+        will not be able to fetch the exit code of the process if wait is
+        False.
 
-    Returns the sub-process return code, unless wait is False in which
-    case it returns None.
+        Returns the sub-process return code, unless wait is False in which
+        case it returns None.
 
-    @WARNING: this function only works on Windows.
-    """
-
-    if os.name != 'nt':
-        #raise RuntimeError, ("This function is only implemented on Windows.")
-        #print("This function is only implemented on Windows.")
-        raise RuntimeError("This function is only implemented on Windows.")
-    import win32api
-    import win32con
-    import win32event
-    import win32process
-    from win32com.shell.shell import ShellExecuteEx
-    from win32com.shell import shellcon
-
-    python_exe = sys.executable
-
-    if cmdLine is None:
-        cmdLine = [python_exe] + sys.argv
-    elif type(cmdLine) not in (types.TupleType, types.ListType):
-        raise ValueError("cmdLine is not a sequence.")
-    cmd = '"%s"' % (cmdLine[0],)
-    # XXX TODO: isn't there a function or something we can call to massage command line params?
-    params = " ".join(['"%s"' % (x,) for x in cmdLine[1:]])
-    cmdDir = ''
-    showCmd = win32con.SW_SHOWNORMAL
-    lpVerb = 'runas'  # causes UAC elevation prompt.
-
-    # print "Running", cmd, params
-
-    # ShellExecute() doesn't seem to allow us to fetch the PID or handle
-    # of the process, so we can't get anything useful from it. Therefore
-    # the more complex ShellExecuteEx() must be used.
-
-    # procHandle = win32api.ShellExecute(0, lpVerb, cmd, params, cmdDir, showCmd)
-
-    procInfo = ShellExecuteEx(nShow=showCmd,
-                              fMask=shellcon.SEE_MASK_NOCLOSEPROCESS,
-                              lpVerb=lpVerb,
-                              lpFile=cmd,
-                              lpParameters=params)
-
-    if wait:
-        procHandle = procInfo['hProcess']
-        obj = win32event.WaitForSingleObject(procHandle, win32event.INFINITE)
-        rc = win32process.GetExitCodeProcess(procHandle)
-        #print "Process handle %s returned code %s" % (procHandle, rc)
-    else:
-        rc = None
-
-    return rc
-
-def write_windows_eventlog(AppName: str, eventID: int, event_type: int, send_toast: bool, ip: None, msg:str|None):
-    """
-        Writes an event to windows event log using custom dll
-
-        values:
-            - AppName = name of app in windows eventlog
-            - eventid = eventid to use
-            - event_type = type of alert to use  info,warning,err
-            - send_toast = send toast alert or not. values accepted TRUE FALSE
-            - ip = used for toast alerts if enabled can be None
-            - msg = the msg you want to appear in the details section of event default if None
-
-        event types:
-            possible event types are.
-
-            - "win32evtlog.EVENTLOG_INFORMATION_TYPE"
-            -  "win32evtlog.EVENTLOG_WARNING_TYPE"
-            -  "win32evtlog.EVENTLOG_ERROR_TYPE"
-
-
-        messages:
-            all mesages are stored in dll. possible entries for func are as follows
-            Future events are planned. for now the msg's are hard coded
-            -    Event,                  eventid,           type
-            - ######################################################
-            - ARTILLERY_START            100              info
-            - ARTILLERY_STOP             101              info
-            - HONEYPOT_ATTACK            200              warning
-            - Smb_Client_Enabled         300              warning
-            - Smb_Server_Enabled         301              warning
-            - WPAD_Running               302              warning
-            - LLMNR_Key_Not_Present      303              warning
-            - Smb_Disable_Help           310              info
-            - DLL_Installed              500              info
-            - Dll_Removed                501              info
-            - Artillery_Installed        502              info
-            - Artillery_Removed          503              info
-
-        for ex.
-
-            - write_windows_eventlog('Artillery', 200, warning, True, ip)
-
-            This will log a honeypot attack message and send toast alert with values given
-
-
-        Calls ReportEvent() from pywin32.
-
-            - ReportEvent(AppName, eventID, eventCategory=int(category), eventType=event_type, data=data, sid=my_sid)
-
-
+        @WARNING: this function only works on Windows.
         """
-    category = int(1)
-    process = GetCurrentProcess()
-    token = OpenProcessToken(process, TOKEN_READ)
-    my_sid = GetTokenInformation(token, TokenUser)[0]
-        #grab a msg if any
-    if msg is not None:
-        data = f"Application\0Data{msg}".encode("ascii")
-    else:
-        data = "Your\0awesome\0additions\0to\0Artillery".encode("ascii")   
-        #working on getting info straight to main event window with string inserts
-        #building new event dll as we speak.
-        #used to test and make sure right types are being passed in
-    # print(f"Appname expected str got: {type(AppName)}")
-    # print(f"Eventid expected int got: {type(event_type)}")
-    # print(f"Catagory expected int got: {type(category)}")
-    # print(f"Eventtype expected int got: {type(event_type)}")
-    # print(f"Data expected bytes got: {type(data)}")
-    # print(f"sid expected Pysid got: {type(my_sid)}")
-    ReportEvent(str(AppName), int(eventID), eventCategory=int(category), eventType=event_type, data=bytes(data), sid=my_sid)
+
+        if os.name != 'nt':
+            #raise RuntimeError, ("This function is only implemented on Windows.")
+            #print("This function is only implemented on Windows.")
+            raise RuntimeError("This function is only implemented on Windows.")
+        import win32api
+        import win32con
+        import win32event
+        import win32process
+        from win32com.shell.shell import ShellExecuteEx
+        from win32com.shell import shellcon
+
+        python_exe = sys.executable
+
+        if cmdLine is None:
+            cmdLine = [python_exe] + sys.argv
+        elif type(cmdLine) not in (types.TupleType, types.ListType):
+            raise ValueError("cmdLine is not a sequence.")
+        cmd = '"%s"' % (cmdLine[0],)
+        # XXX TODO: isn't there a function or something we can call to massage command line params?
+        params = " ".join(['"%s"' % (x,) for x in cmdLine[1:]])
+        cmdDir = ''
+        showCmd = win32con.SW_SHOWNORMAL
+        lpVerb = 'runas'  # causes UAC elevation prompt.
+
+        # print "Running", cmd, params
+
+        # ShellExecute() doesn't seem to allow us to fetch the PID or handle
+        # of the process, so we can't get anything useful from it. Therefore
+        # the more complex ShellExecuteEx() must be used.
+
+        # procHandle = win32api.ShellExecute(0, lpVerb, cmd, params, cmdDir, showCmd)
+
+        procInfo = ShellExecuteEx(nShow=showCmd,
+                                fMask=shellcon.SEE_MASK_NOCLOSEPROCESS,
+                                lpVerb=lpVerb,
+                                lpFile=cmd,
+                                lpParameters=params)
+
+        if wait:
+            procHandle = procInfo['hProcess']
+            obj = win32event.WaitForSingleObject(procHandle, win32event.INFINITE)
+            rc = win32process.GetExitCodeProcess(procHandle)
+            #print "Process handle %s returned code %s" % (procHandle, rc)
+        else:
+            rc = None
+
+        return rc
+
+    def write_windows_eventlog(AppName: str, eventID: int, event_type: int, send_toast: bool, ip: None, msg:str|None):
+        """
+            Writes an event to windows event log using custom dll
+
+            values:
+                - AppName = name of app in windows eventlog
+                - eventid = eventid to use
+                - event_type = type of alert to use  info,warning,err
+                - send_toast = send toast alert or not. values accepted TRUE FALSE
+                - ip = used for toast alerts if enabled can be None
+                - msg = the msg you want to appear in the details section of event default if None
+
+            event types:
+                possible event types are.
+
+                - "win32evtlog.EVENTLOG_INFORMATION_TYPE"
+                -  "win32evtlog.EVENTLOG_WARNING_TYPE"
+                -  "win32evtlog.EVENTLOG_ERROR_TYPE"
+
+
+            messages:
+                all mesages are stored in dll. possible entries for func are as follows
+                Future events are planned. for now the msg's are hard coded
+                -    Event,                  eventid,           type
+                - ######################################################
+                - ARTILLERY_START            100              info
+                - ARTILLERY_STOP             101              info
+                - HONEYPOT_ATTACK            200              warning
+                - Smb_Client_Enabled         300              warning
+                - Smb_Server_Enabled         301              warning
+                - WPAD_Running               302              warning
+                - LLMNR_Key_Not_Present      303              warning
+                - Smb_Disable_Help           310              info
+                - DLL_Installed              500              info
+                - Dll_Removed                501              info
+                - Artillery_Installed        502              info
+                - Artillery_Removed          503              info
+
+            for ex.
+
+                - write_windows_eventlog('Artillery', 200, warning, True, ip)
+
+                This will log a honeypot attack message and send toast alert with values given
+
+
+            Calls ReportEvent() from pywin32.
+
+                - ReportEvent(AppName, eventID, eventCategory=int(category), eventType=event_type, data=data, sid=my_sid)
+
+
+            """
+        category = int(1)
+        process = GetCurrentProcess()
+        token = OpenProcessToken(process, TOKEN_READ)
+        my_sid = GetTokenInformation(token, TokenUser)[0]
+            #grab a msg if any
+        if msg is not None:
+            data = f"Application\0Data{msg}".encode("ascii")
+        else:
+            data = "Your\0awesome\0additions\0to\0Artillery".encode("ascii")   
+            #working on getting info straight to main event window with string inserts
+            #building new event dll as we speak.
+            #used to test and make sure right types are being passed in
+        # print(f"Appname expected str got: {type(AppName)}")
+        # print(f"Eventid expected int got: {type(event_type)}")
+        # print(f"Catagory expected int got: {type(category)}")
+        # print(f"Eventtype expected int got: {type(event_type)}")
+        # print(f"Data expected bytes got: {type(data)}")
+        # print(f"sid expected Pysid got: {type(my_sid)}")
+        ReportEvent(str(AppName), int(eventID), eventCategory=int(category), eventType=event_type, data=bytes(data), sid=my_sid)
 
 def syslog(message, alerttype, evtid):
     """
