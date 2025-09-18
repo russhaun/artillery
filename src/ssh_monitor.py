@@ -1,17 +1,19 @@
 #!/usr/bin/python
 # all standard python imports such as sys,os and the like are in core.py no need to
- #include again. only add libraries that are not a part of std libs.aka neeed to be pip installed
-#############################
-#
-# This one monitors ssh logs
-#
-#############################
+# include again import from core.py. only add libraries that are not a part of std libs.aka neeed to be pip installed
+#please only add to respective is_platform call when importing 3rd party
+###################################################################################################
 from .core import is_posix,is_windows,log_event,settings
+__appname__ = "SSH Bruteforce monitor"
+__vesion__ = "1.0"
+__author__ = ""
+__requires__ = []
+__description__ = "Monitors ssh logs from various *nix distros for brute force attempts"
 
 
 #only define function if posix and setup values
 if is_posix():
-    from .core import os,re,time,is_valid_ipv4,is_whitelisted_ip,ban
+    from .core import os,re,time,is_valid_ipv4,is_whitelisted_ip,ban,threading
     from .email_handler import *
     ssh_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
     banlist = settings.get_config("current","BANLIST")
@@ -99,7 +101,8 @@ if is_posix():
 def start_ssh_monitor():
     if is_posix():
         monitor_frequency = settings.get_config("current", "SSH_MONITOR_FREQUENCY")
-        log_event("[*] Launching SSH Bruteforce monitor.",0,None,True)
-        ssh_monitor(int(monitor_frequency))
+        log_event(f"[*] Launching {__appname__} v{__vesion__}.",0,None,True)
+        threading.Thread(group=None,target=ssh_monitor,args=(int(monitor_frequency)),daemon=True).start()
     if is_windows():
         pass
+start_ssh_monitor()

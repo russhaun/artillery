@@ -1,21 +1,18 @@
 # all standard python imports such as sys,os and the like are in core.py no need to
- #include again. only add libraries that are not a part of std libs.aka neeed to be pip installed
-#############################
-#
-# This one monitors file system integrity
-#these wil be merged to one function in future
-#
-#############################
+# include again import from core.py. only add libraries that are not a part of std libs.aka neeed to be pip installed
+# please only add to respective is_platform call when importing 3rd party or from core.py
+###################################################################################################
 from .core import is_posix,is_windows,settings,log_event
 from .email_handler import *
+__appname__ = "Folder Monitor"
+__vesion__ = "1.0"
+__author__ = ""
+__requires__ = []
+__description__ = "Monitors folders specified in the config file"
 
 monitor_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
 #
 if is_windows():
-    # left to show imports
-    # from pathlib import PureWindowsPath
-    # import win32file
-    # import win32con
     from .core import threading,PureWindowsPath,win32file,win32con,os,re
     def watch_directory_for_changes(Fpath,k=None):
 
@@ -57,9 +54,9 @@ if is_windows():
         # deleted at once.
         #
             results = win32file.ReadDirectoryChangesW (
-            hDir,
-            1024,
-            True,
+            hDir,#handle
+            1024,#buffer
+            True,#watch subtrees
             win32con.FILE_NOTIFY_CHANGE_FILE_NAME |
             win32con.FILE_NOTIFY_CHANGE_DIR_NAME |
             win32con.FILE_NOTIFY_CHANGE_ATTRIBUTES |
@@ -188,38 +185,39 @@ def monitor_start():
     '''
     Function that starts folder monitor routine depending on platform
     '''
-    if is_windows():
-        '''Starts Windows folder watch routine for specified directories. for now
-    it tells when something happens. will work in more logic later'''
-        try:
-            paths_to_watch = settings.get_config("current","MONITOR_FOLDERS")
-            paths_to_watch = paths_to_watch.replace('"', "")
-            paths_to_watch = paths_to_watch.replace(" ", "")
-            paths_to_watch = paths_to_watch.replace("MONITOR_FOLDERS=", "")
-            paths_to_watch = paths_to_watch.strip(" ")
-            paths_to_watch = paths_to_watch.split(",")
-        except BaseException as e:
-            #add exception log here
-            log_event(e.args,2,None,False)
-        # cycle through tuple
-        for directory in paths_to_watch:
-            path = PureWindowsPath(directory)
+    if settings.is_config_enabled("MONITOR") == True:
+        if is_windows():
+            '''Starts Windows folder watch routine for specified directories. for now
+            it tells when something happens. will work in more logic later'''
             try:
-                log_event(f"[*] Starting Folder Monitor on path: {path}",0,None,True)
-                #have to pass None here start_new_thread doesn't like when u only give 1 var
-                #on function it only watches the first entry if u don't
-                k = None
-                threading.Thread(group=None,target=watch_directory_for_changes,args=(str(path), k),daemon=True).start()
-                #thread.start_new_thread(watch_directory_for_changes, (str(path), k))
-            except Exception as err:
-                log_event(err,2,None,False)
-    if is_posix():
-        '''Starts Linux folder watch routine for specified directories.'''
-        # start the monitoring
-        time_wait = settings.get_config("current","MONITOR_FREQUENCY")
-        # loop forever
-        while 1:
-            threading.Thread(group=None,target=monitor_system,args=(time_wait),daemon=True).start()
-            #thread.start_new_thread(monitor_system, (time_wait,))
-            time_wait = int(time_wait)
-            time.sleep(time_wait)
+                paths_to_watch = settings.get_config("current","MONITOR_FOLDERS")
+                paths_to_watch = paths_to_watch.replace('"', "")
+                paths_to_watch = paths_to_watch.replace(" ", "")
+                paths_to_watch = paths_to_watch.replace("MONITOR_FOLDERS=", "")
+                paths_to_watch = paths_to_watch.strip(" ")
+                paths_to_watch = paths_to_watch.split(",")
+            except BaseException as e:
+                #add exception log here
+                log_event(e.args,2,None,False)
+            # cycle through tuple
+            for directory in paths_to_watch:
+                path = PureWindowsPath(directory)
+                try:
+                    log_event(f"[*] Starting {__appname__} v{__vesion__} on path: {path}",0,None,True)
+                    #have to pass None here start_new_thread doesn't like when u only give 1 var
+                    #on function it only watches the first entry if u don't
+                    k = None
+                    threading.Thread(group=None,target=watch_directory_for_changes,args=(str(path), k),daemon=True).start()
+                except Exception as err:
+                    log_event(err,2,None,False)
+        if is_posix():
+            '''Starts Linux folder watch routine for specified directories.'''
+            log_event(f"[*] Starting {__appname__} v{__vesion__}",0,None,True)
+            # start the monitoring
+            time_wait = settings.get_config("current","MONITOR_FREQUENCY")
+            # loop forever
+            while 1:
+                threading.Thread(group=None,target=monitor_system,args=(time_wait),daemon=True).start()
+                time_wait = int(time_wait)
+                time.sleep(time_wait)
+monitor_start()

@@ -1,29 +1,23 @@
 #!/usr/bin/python
 #
-# this is the honeypot stuff. this will morph and change over time as i work in features,
-#including packet capture, whois, geo-ip info of attacker as well as custom responses based
-# on server port and type:))))
-# 
-#left to show whats imported
-#import socketserver as SocketServer
-#from socket import socket as _socket
-#import sys
-#import socket
-#import time
-#import os
-#import random
-#import datetime
-#import traceback
-#import threading
-
+# this is the honeypot stuff and by no means finished . there are some things that need to be cleaned up and refined.
+# this will morph and change over time as I work in features, including packet capture, whois,
+# geo-ip info of attacker as well as custom responses based on server port and type:))))
+###################################################################################################
 from .core import sys,socket,time,os,random,datetime,traceback,threading,SocketServer,_socket,log_event,is_posix,is_windows,is_whitelisted_ip,is_already_banned,is_valid_ipv4,does_line_exist,settings
 from .email_handler import *
-
+__appname__ = "Honeypot Server"
+__vesion__ = "1.0"
+__author__ = ""
+__requires__ = []
+__description__ = "Fake server to accept requests from unsolicited sources and ban or report accordingly\nSupports Tcp\\Udp,ipv4\\ipv6(experimental)"
 
 
 honeypot_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
 #this is the delay on how often email handler will check the trigger file
 delay_timer = settings.get_config('current','EMAIL_FREQUENCY')
+#these are for the compiled version with systray app installed
+#not applicable to raw py version(yet) so leaving it here
 SYSTRAY_ENABLED = False
 SYSTRAY_MSG_ACTVE = False
 ALERTS_PENDING = False
@@ -539,7 +533,7 @@ def check_for_alerts():
                         #print(f"ip {item} is already present",flush=True)
                         pass
                     else:
-                        #ban from here this solves the dupe issue
+                        #ban from here this solves the dupe issue(windows)
                         #will probably use banlist_add_line() function
                         #as it has a check for if the line is present
                         #and re-work this section
@@ -567,9 +561,12 @@ def start_honeypot():
     starts main honeypot fuction
     """
     #write_console("[*] Starting honeypot.")
-    log_event("[*] Launching honeypot.", 0, None,console=True)
-    threading.Thread(target=main,args=(settings.get_config("current","TCPPORTS"),settings.get_config("current","UDPPORTS"),settings.get_config("current","BIND_INTERFACE"))).start()
-    threading.Thread(target=check_for_alerts,args=()).start()
-    if settings.is_config_enabled('EMAIL_ALERTS') == True:
-        honeypot_email_logger.set_trigger_file('hptrigger.txt')
-        threading.Thread(honeypot_email_logger.check_pending_msgs, ()).start()
+    if settings.is_config_enabled("ENABLE_HONEYPOT") == True:
+        log_event(f"[*] Starting {__appname__} v{__vesion__}.", 0, None,console=True)
+        threading.Thread(target=main,args=(settings.get_config("current","TCPPORTS"),settings.get_config("current","UDPPORTS"),settings.get_config("current","BIND_INTERFACE"))).start()
+        threading.Thread(target=check_for_alerts,args=()).start()
+        if settings.is_config_enabled('EMAIL_ALERTS') == True:
+            honeypot_email_logger.set_trigger_file('hptrigger.txt')
+            threading.Thread(honeypot_email_logger.check_pending_msgs, ()).start()
+
+start_honeypot()

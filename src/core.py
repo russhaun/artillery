@@ -100,106 +100,28 @@ def is_windows():
     '''returns true platform is Windows related'''
     return os.name == "nt"
 if is_windows():
-    from win32api import SetConsoleTitle, GetCurrentProcessId
+    from win32api import SetConsoleTitle, GetCurrentProcessId,GetUserName
     from win32evtlogutil import ReportEvent, SafeFormatMessage,FormatMessage
     from win32api import GetCurrentProcess
     from win32security import GetTokenInformation, TokenUser, OpenProcessToken
     from win32con import TOKEN_READ
+    import win32con
     import win32evtlog
     import win32gui
+    import win32security
     from winreg import *
     from pathlib import PureWindowsPath
+    import pywintypes
     import win32file
-    import win32con
+    #import win32con as con
+    import ntsecuritycon as con
     import win32process
     import win32com.client as win32comclient
-    #i do it like this to only import on windows sorry for the chunky docstrings
-    def isUserAdmin():
-        """@return: True if the current user is an 'Admin' whatever that
-        means (root on Unix), otherwise False.
-
-        Warning: The inner function fails unless you have Windows XP SP2 or
-        higher. The failure causes a traceback to be printed and this
-        function to return False.
-        """
-
-        if os.name == 'nt':
-            import ctypes
-            # WARNING: requires Windows XP SP2 or higher!
-            try:
-                return ctypes.windll.shell32.IsUserAnAdmin()
-            except:
-                traceback.print_exc()
-                print("Admin check failed, assuming not an admin.",flush=True)
-                return False
-        else:
-            # Check for root on Posix
-            return os.getuid() == 0
-
-
-    def runAsAdmin(cmdLine=None, wait=False):
-        """Attempt to relaunch the current script as an admin using the same
-        command line parameters.  Pass cmdLine in to override and set a new
-        command.  It must be a list of [command, arg1, arg2...] format.
-
-        Set wait to False to avoid waiting for the sub-process to finish. You
-        will not be able to fetch the exit code of the process if wait is
-        False.
-
-        Returns the sub-process return code, unless wait is False in which
-        case it returns None.
-
-        @WARNING: this function only works on Windows.
-        """
-
-        if os.name != 'nt':
-            #raise RuntimeError, ("This function is only implemented on Windows.")
-            #print("This function is only implemented on Windows.")
-            raise RuntimeError("This function is only implemented on Windows.")
-        import win32api
-        import win32con
-        import win32event
-        import win32process
-        from win32com.shell.shell import ShellExecuteEx
-        from win32com.shell import shellcon
-
-        python_exe = sys.executable
-
-        if cmdLine is None:
-            cmdLine = [python_exe] + sys.argv
-        elif type(cmdLine) not in (types.TupleType, types.ListType):
-            raise ValueError("cmdLine is not a sequence.")
-        cmd = '"%s"' % (cmdLine[0],)
-        # XXX TODO: isn't there a function or something we can call to massage command line params?
-        params = " ".join(['"%s"' % (x,) for x in cmdLine[1:]])
-        cmdDir = ''
-        showCmd = win32con.SW_SHOWNORMAL
-        lpVerb = 'runas'  # causes UAC elevation prompt.
-
-        # print "Running", cmd, params
-
-        # ShellExecute() doesn't seem to allow us to fetch the PID or handle
-        # of the process, so we can't get anything useful from it. Therefore
-        # the more complex ShellExecuteEx() must be used.
-
-        # procHandle = win32api.ShellExecute(0, lpVerb, cmd, params, cmdDir, showCmd)
-
-        procInfo = ShellExecuteEx(nShow=showCmd,
-                                fMask=shellcon.SEE_MASK_NOCLOSEPROCESS,
-                                lpVerb=lpVerb,
-                                lpFile=cmd,
-                                lpParameters=params)
-
-        if wait:
-            procHandle = procInfo['hProcess']
-            obj = win32event.WaitForSingleObject(procHandle, win32event.INFINITE)
-            rc = win32process.GetExitCodeProcess(procHandle)
-            #print "Process handle %s returned code %s" % (procHandle, rc)
-        else:
-            rc = None
-
-        return rc
-
+    import win32file
+    import win32pipe
+    import win32event
+    import winerror
+    
     def write_windows_eventlog(AppName: str, eventID: int, event_type: int, send_toast: bool, ip: None, msg:str|None):
         """
             Writes an event to windows event log using custom dll
@@ -433,7 +355,8 @@ def set_console_icon(window_title, icon_path):
             icon_path (str): The path to the .ico file.
     """
     if is_windows():
-
+        
+        import win32con
         try:
         # Find the window handle
             hwnd = win32gui.FindWindow(None, window_title)
@@ -565,62 +488,64 @@ def ban(ip):
 
 def update():
     '''updates artillery on linux platforms'''
-    if is_posix():
-        log_event("Running auto update (git pull)",0,None,True)
-        if os.path.isdir(settings.get_config('global', "APPPATH") + "/.svn"):
-            print(
-                "[!] Old installation detected that uses subversion. Fixing and moving to github.",flush=True)
-            try:
-                if len(settings.get_config('global', "APPPATH")) > 1:
-                    shutil.rmtree(settings.get_config('global', "APPPATH"))
-                subprocess.Popen(
-                    "git clone https://github.com/binarydefense/artillery", shell=True).wait()
-            except:
-                print(
-                    "[!] Something failed. Please type 'git clone https://github.com/binarydefense/artillery %s' to fix!" % settings.get_config('global', "APPPATH"),flush=True)
+    def get_updates():
+        if settings.is_config_enabled("AUTO_UPDATE") == True:
+            if is_posix():
+                log_event("Running auto update (git pull)",0,None,True)
+                if os.path.isdir(settings.get_config('global', "APPPATH") + "/.svn"):
+                    print(
+                        "[!] Old installation detected that uses subversion. Fixing and moving to github.",flush=True)
+                    try:
+                        if len(settings.get_config('global', "APPPATH")) > 1:
+                            shutil.rmtree(settings.get_config('global', "APPPATH"))
+                        subprocess.Popen(
+                            "git clone https://github.com/binarydefense/artillery", shell=True).wait()
+                    except:
+                        print(
+                            "[!] Something failed. Please type 'git clone https://github.com/binarydefense/artillery %s' to fix!" % settings.get_config('global', "APPPATH"),flush=True)
 
-        #subprocess.Popen("cd %s;git pull" % settings.get_config('global', "APPPATH"),
-        #                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-        update_cmd = execOScmd("cd %s; git pull" % settings.get_config('global', "APPPATH"))
-        errorfound = False
-        abortfound = False
-        errormsg = ""
-        for l in update_cmd:
-            errormsg += "%s\n" % l
-            if "error:" in l:
-                errorfound = True
-            if "Aborting" in l:
-                abortfound = True
-        if errorfound and abortfound:
-            msg = f"Error updating artillery, git pull was aborted. Error:\n{errormsg}"
-            log_event(msg,2,None,True)
-            msg = "I will make a copy of the config file, run git stash, and restore config file"
-            log_event(msg,2,None,True)
-            saveconfig = "cp '%s' '%s.old'" % (settings.get_config('global',"LOGFILE"), settings.get_config('global',"LOGFILE"))
-            execOScmd(saveconfig)
-            gitstash = "git stash"
-            execOScmd(gitstash)
-            gitpull = "git pull"
-            newpull = execOScmd(gitpull)
-            restoreconfig = "cp '%s.old' '%s'" % (settings.get_config('global',"LOGFILE"), settings.get_config('global',"LOGFILE"))
-            execOScmd(restoreconfig)
-            pullmsg = ""
-            for l in newpull:
-                pullmsg += "%s\n" % l
-            msg = "Tried to fix git pull issue. Git pull now says:"
-            log_event(msg,2,None,True)
-            #
-            log_event(pullmsg,2,None,True)
-        else:
-            msg = f"Output 'git pull':\n{errormsg}"
-            log_event(msg,0,None,False)
-    if is_windows():
-        #call update.exe/py
-        #if not and put the code here would require adding wx to project
-        #don't want to do that
-        pass
-
-
+                #subprocess.Popen("cd %s;git pull" % settings.get_config('global', "APPPATH"),
+                #                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                update_cmd = execOScmd("cd %s; git pull" % settings.get_config('global', "APPPATH"))
+                errorfound = False
+                abortfound = False
+                errormsg = ""
+                for l in update_cmd:
+                    errormsg += "%s\n" % l
+                    if "error:" in l:
+                        errorfound = True
+                    if "Aborting" in l:
+                        abortfound = True
+                if errorfound and abortfound:
+                    msg = f"Error updating artillery, git pull was aborted. Error:\n{errormsg}"
+                    log_event(msg,2,None,True)
+                    msg = "I will make a copy of the config file, run git stash, and restore config file"
+                    log_event(msg,2,None,True)
+                    saveconfig = "cp '%s' '%s.old'" % (settings.get_config('global',"LOGFILE"), settings.get_config('global',"LOGFILE"))
+                    execOScmd(saveconfig)
+                    gitstash = "git stash"
+                    execOScmd(gitstash)
+                    gitpull = "git pull"
+                    newpull = execOScmd(gitpull)
+                    restoreconfig = "cp '%s.old' '%s'" % (settings.get_config('global',"LOGFILE"), settings.get_config('global',"LOGFILE"))
+                    execOScmd(restoreconfig)
+                    pullmsg = ""
+                    for l in newpull:
+                        pullmsg += "%s\n" % l
+                    msg = "Tried to fix git pull issue. Git pull now says:"
+                    log_event(msg,2,None,True)
+                    #
+                    log_event(pullmsg,2,None,True)
+                else:
+                    msg = f"Output 'git pull':\n{errormsg}"
+                    log_event(msg,0,None,False)
+            if is_windows():
+                #call update.exe/py
+                #if not and put the code here would require adding wx to project
+                #don't want to do that
+                pass
+    threading.Thread(group=None,target=get_updates,args=(),daemon=True).start()
+#
 def addressInNetwork(ip, net):
     """
     returns true if the ip is in a given network
@@ -798,40 +723,6 @@ def is_valid_ipv4(ip):
     $
     """, re.VERBOSE | re.IGNORECASE)
         return pattern.match(ip) is not None
-#this fuction will be removed in the future 
-#as it is not needed currently it does nothing
-#the banlist is always true as banlist is created @ runtime if not present
-def check_banlist_path():
-    '''checks for banlist.txt if not found attempts to create one with header'''
-    path = ""
-    if is_posix():
-        if os.path.isfile(settings.get_config('global',"BANLIST")):
-            path = settings.get_config('global',"BANLIST")
-        # if path is blank then try making the file
-        if path == "":
-            if os.path.isdir(settings.get_config('global', "APPPATH")):
-                filewrite = open(settings.get_config('global',"BANLIST"), "w")
-                filewrite.write(
-                    "#\n#\n#\n# Binary Defense Systems Artillery Threat Intelligence Feed and Banlist Feed\n# https://www.binarydefense.com\n#\n# Note that this is for public use only.\n# The ATIF feed may not be used for commercial resale or in products that are charging fees for such services.\n# Use of these feeds for commerical (having others pay for a service) use is strictly prohibited.\n#\n#\n#\n")
-                filewrite.close()
-                path = settings.get_config('global',"BANLIST")
-    # if is_windows():
-    #     #this check is no longer needed
-    #     if os.path.isfile(settings.get_config('global',"BANLIST")):
-    #         # grab the path
-    #         path = settings.get_config('global',"BANLIST")
-    #
-    return path
-
-
-# def is_posix():
-#     '''returns true platform is posix related'''
-#     return os.name == "posix"
-
-
-# def is_windows():
-#     '''returns true platform is Windows related'''
-#     return os.name == "nt"
 
 #only used on posix
 def execOScmd(cmd, logmsg=""):
@@ -898,6 +789,7 @@ def create_firewall_rules():
     if is_posix():
         ban_check = settings.is_config_enabled("HONEYPOT_BAN")
         if ban_check == True:
+            log_event("[*] Creating iptables entries, hold on.",0,None,True)
             banning_enabled = True
             # remove previous entry if it already exists
             execOScmd("iptables -D INPUT -j ARTILLERY", "Deleting ARTILLERY IPTables Chain")
@@ -989,7 +881,8 @@ def create_firewall_rules():
                     logindex = 0
                 listindex += 1
                 logindex += 1   
-        write_console("    %d/%d : Done: Added %d/%d entries to iptables chain, thank you for waiting." % (listindex-1, len(iplists), total_added, total_nr))
+            write_console("    %d/%d : Done: Added %d/%d entries to iptables chain, thank you for waiting." % (listindex-1, len(iplists), total_added, total_nr))
+            log_event("[*] iptables entries created.",0,None,True)
     if is_windows():
         #figure 3 to 5 groups 800 limit per group
         #keep track and rotate out?
@@ -1175,111 +1068,24 @@ def threat_server():
     '''
     copies files for use with hosting a threat server
     '''
-    public_http = settings.get_config("current","THREAT_LOCATION")
-    if os.path.isdir(public_http):
-        banfiles = settings.get_config("current","THREAT_FILE")
-        if banfiles == "":
-            banfiles = settings.get_config('global',"BANLIST")
-        banfileparts = banfiles.split(",")
-        while 1:
-            for banfile in banfileparts:
-                thisfile = settings.get_config('global', "APPPATH") + "/" + banfile
-                subprocess.Popen("cp '%s' '%s'" % (thisfile, public_http), shell=True).wait()
-                #write_log("ThreatServer: Copy '%s' to '%s'" % (thisfile, public_http))
-            time.sleep(300)
-
-# def syslog(message, alerttype, evtid):
-#     """
-#     Handles various logging methods availible. writes to SYSLOG, Remote SYSLOG, FILE
-
-#         :param msg ex: "alert detected from 'addr'"
-#         :param alerttype ex: an int describing the level of the alert
-#         :param evtid ex: only used on windows this is the eventid used in msg dll
-#     """
-#     logtype = settings.get_config("current","SYSLOG_TYPE")
-#     alertindicator = ""
-#     if alerttype == -1:
-#         alertindicator = ""
-#     elif alerttype == 0:
-#         alertindicator = "[INFO]"
-#     elif alerttype == 1:
-#         alertindicator = "[WARN]"
-#     elif alerttype == 2:
-#         alertindicator = "[ERROR]"
-#     # if we are sending remote syslog
-#     if logtype == "REMOTE":
-#         import socket
-#         FACILITY = {
-#             'kern': 0, 'user': 1, 'mail': 2, 'daemon': 3,
-#             'auth': 4, 'syslog': 5, 'lpr': 6, 'news': 7,
-#             'uucp': 8, 'cron': 9, 'authpriv': 10, 'ftp': 11,
-#             'local0': 16, 'local1': 17, 'local2': 18, 'local3': 19,
-#             'local4': 20, 'local5': 21, 'local6': 22, 'local7': 23,
-#         }
-#         LEVEL = {
-#             'emerg': 0, 'alert': 1, 'crit': 2, 'err': 3,
-#             'warning': 4, 'notice': 5, 'info': 6, 'debug': 7
-#         }
-#         def syslog_send(
-#             message, level=LEVEL['notice'], facility=FACILITY['daemon'],
-#                         host='localhost', port=514):
-#             # Send syslog UDP packet to given host and port.
-#             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-#             data = '<%d>%s' % (level + facility * 8, message + "\n")
-#             sock.sendto(data.encode("ascii"), (host, port))
-#             sock.close()
-#         # send the syslog message
-#         remote_syslog = settings.get_config("current","SYSLOG_REMOTE_HOST")
-#         remote_port = int(settings.get_config("current","SYSLOG_REMOTE_PORT"))
-#         syslogmsg = message
-#         if alertindicator != "":
-#             syslogmsg = "Artillery%s: %s" % (alertindicator, message)
-#         #syslogmsg = "%s %s Artillery: %s" % (grab_time(), alertindicator, message)
-#         syslog_send(syslogmsg, host=remote_syslog, port=remote_port)
-#     # if we are sending local syslog messages
-#     #not currently in use although defind on windows
-#     # i use a custom dll for alerts
-#     #am  working on a solution
-#     elif logtype == "LOCAL":
-#         my_logger = logging.getLogger('Artillery')
-#         my_logger.setLevel(logging.DEBUG)
-#         if is_posix():
-#             handler = logging.handlers.SysLogHandler(address='/dev/log')
-#         if is_windows():
-#             #this will probably need to be changed to use our custom dll
-#             #i have not tested this yet
-#             #i have a working solution in win_func.py that is not used here
-#             handler = logging.handlers.NTEventLogHandler("Artillery",settings.get_config("global","EVENT_DLL"),"Application")
-#         my_logger.addHandler(handler)
-#         for line in message.splitlines():
-#             if alertindicator != "":
-
-#                 my_logger.critical("Artillery%s: %s\n" % (alertindicator, line))
-#             else:
-#                 my_logger.critical("%s\n" % line)
-
-#     # if we don't want to use local syslog and just write to file in
-#     # logs/alerts.log
-#     # this will eventually replace write_log func
-#     #this could be removed and replaced in log event function
-#     elif logtype == "FILE":
-#         if is_windows():
-#             #files are written out regardless of this setting in file
-#             pass
-#         else:
-#             with open(file=settings.get_config('global', "ALERT_LOG"),mode='a',encoding='utf-8') as alertlog:
-#                 msg = f"{grab_time()} Artillery{alertindicator}: {message}\n"
-#                 alertlog.write(msg)
-    
-#     #check to see if there is a windows event
-#     #
-#     if evtid == None:
-#         pass
-#     else:
-#         #unset for now but working
-#         # from .win_func import write_windows_eventlog
-#         # write_windows_eventlog("Artillery",evtid, alertindicator,False,None)
-#         pass
+    def update_server():
+        if settings.is_config_enabled("THREAT_SERVER") == True:
+            if is_posix():
+                public_http = settings.get_config("current","THREAT_LOCATION")
+                if os.path.isdir(public_http):
+                    banfiles = settings.get_config("current","THREAT_FILE")
+                    if banfiles == "":
+                        banfiles = settings.get_config('global',"BANLIST")
+                    banfileparts = banfiles.split(",")
+                    while 1:
+                        for banfile in banfileparts:
+                            thisfile = settings.get_config('global', "APPPATH") + "/" + banfile
+                            subprocess.Popen("cp '%s' '%s'" % (thisfile, public_http), shell=True).wait()
+                            #write_log("ThreatServer: Copy '%s' to '%s'" % (thisfile, public_http))
+                        time.sleep(300)
+            if is_windows():
+                pass
+    threading.Thread(group=None,target=update_server,args=(),daemon=True).start()
 #this is only in use on certain posix func and will be removed in future
 # this will be handled in log_event func 
 def write_console(alert) -> None:
@@ -1288,60 +1094,6 @@ def write_console(alert) -> None:
         alertlines = alert.split("\n")
         for alertline in alertlines:
             print("%s: %s" % (grab_time(), alertline),flush=True)
-#
-# def log_event(alert: str, loglvl: int, evtid: int | None, console: bool)->None:
-#     """
-#     Logs events on artillery using configured settings. Hands off to syslog function  
-
-#         :param alert ex: f"alert detected from {addr}"
-#         :param loglvl ex: an int 0/1/2 describing the level of the alert info/warn/error
-#         :param evtid ex: only used on windows this is the eventid used in msg dll can be None
-#         :param console ex: print to active console True or False
-
-#         ex: log_event("oops something went wrong with "insert error here",2,100,True")
-
-#         result: (logs to configured syslog, sets level as error, windows event id, prints to console)
-
-
-#         loglvl 0 events [INFO] will be written to runtime.log##startup/shutdown and other operational msgs\n
-#         loglvl 1 events [WARN] will be written to alerts.log## alerts from modules in project ex: honeypot\n
-#         loglvl 2 events [ERROR] will be written to exceptions.log## alerts from exceptions ex: try/except blocks\n
-#         loglvls with a higher number can be redirected to custom files?
-
-#         With this i can remove FILE as an option in config as these will always write local copies of info for
-#         local review, alerts fall through to syslog function
-#         This will be threaded @ some point in the near future
-#     """
-#     #
-#     if console == True:
-#         if settings.is_config_enabled("CONSOLE_LOGGING") == True:
-#             alertlines = alert.split("\n")
-#             for alertline in alertlines:
-#                 print(f"{grab_time()}: {alertline}",flush=True)
-#     #
-#     log = ""
-#     msg = ""
-#     if loglvl == 0:
-#         log = settings.get_config("global", "RUNTIME_LOG")
-#         msg = f"{grab_time()} Artillery[INFO]: {alert}"
-#     #
-#     if loglvl == 1:
-#         log = settings.get_config("global", "ALERT_LOG")
-#         msg = f"{grab_time()} Artillery[WARN]: {alert}"
-#     #
-#     if loglvl == 2:
-#         log = settings.get_config("global", "EXCEPTION_LOG")
-#         msg = f"{grab_time()} Artillery[ERROR]: {alert}"
-#     #
-#     with open(file=log,mode='a',encoding='utf-8') as event:
-#                 event.write(str(msg) + "\n")
-#     #do email stuff here???
-
-#     #could probably do windows events in here as well
-#     #maybe don't pass this through?
-#     syslog(alert,loglvl,evtid)
-
-
 #this will be removed in future
 #only used in create_iptables_subset()
 def write_log(alert, alerttype=0):
@@ -1375,8 +1127,8 @@ def cleanup_iptables_artillery() -> None:
     '''
     cleans up iptables entries related to artillery
     '''
-    ban_check = settings.get_config("current","HONEYPOT_BAN").lower()
-    if ban_check == "on":
+    ban_check = settings.get_config("current","HONEYPOT_BAN")
+    if ban_check == "ON":
         subprocess.Popen("iptables -D INPUT -j ARTILLERY",
                          stdout=subprocess.PIP, stderr=subprocess.PIPE, shell=True)
         subprocess.Popen("iptables -X ARTILLERY",
@@ -1387,27 +1139,29 @@ def cleanup_iptables_artillery() -> None:
 def refresh_banlist() -> None:
     '''overwrite artillery banlist after certain time interval
         with the value retrived from config file for artillery_refresh '''
-    while 1:
-        interval = settings.get_config("current","ARTILLERY_REFRESH")
-        try:
-            interval = int(interval)
-        except:
-            # if the interval was not an integer, then just pass and don't do
-            # it again
-            break
-        # sleep until interval is up
-        time.sleep(interval)
-        log_event("clearing banlist.txt",0,None,True)
-        # overwrite the log with nothing
-        create_empty_file(settings.get_config('global',"BANLIST"))
-        write_banlist_banner(settings.get_config('global',"BANLIST"))
-        #update after refresh? as the file is now empty
-
-
+    def refresh():
+        if settings.is_config_enabled("RECYCLE_IPS") == True:
+            while 1:
+                interval = settings.get_config("current","ARTILLERY_REFRESH")
+                try:
+                    interval = int(interval)
+                except:
+                    # if the interval was not an integer, then just pass and don't do
+                    # it again
+                    break
+                # sleep until interval is up
+                time.sleep(interval)
+                log_event("clearing banlist.txt",0,None,True)
+                # overwrite the log with nothing
+                create_empty_file(settings.get_config('global',"BANLIST"))
+                write_banlist_banner(settings.get_config('global',"BANLIST"))
+                #update after refresh? as the file is now empty
+    threading.Thread(group=None,target=refresh,args=(),daemon=True).start()
+#
 def format_ips(urls):
 
     '''
-    Retrieves and formats ip lists from pull_source_feeds() func.
+    Recieves and formats ip lists from pull_source_feeds() func.
     Only looks for "200 OK" and "404 Notfound". Only adds if 200 OK
     recieved, alerts on all others. And then writes it to banfile
     For now i only validate ipv4 addresess. ipv6 wil be added in a future update.
@@ -1464,31 +1218,33 @@ def format_ips(urls):
 
 def pull_source_feeds():
     '''update threat intelligence feed with other sources.'''
-    log_event("[*] Pulling from source feeds please wait.......",0,None,True)
-    while 1:
-        url_list = []
-        counter = 0
-        # if we are using source feeds
-        if settings.is_config_enabled('SOURCE_FEEDS') == True:
-            urls = ["http://rules.emergingthreats.net/blockrules/compromised-ips.txt", "http://lists.blocklist.de/lists/apache.txt", "http://lists.blocklist.de/lists/ssh.txt"]
-            for url in urls:
-                url_list.append(url)
-            counter = 1
-        # if we are using threat intelligence feeds
-        if settings.is_config_enabled('THREAT_INTELLIGENCE_FEED') == True:
-            threat_feed = settings.get_config('current','THREAT_FEED')
-            if threat_feed != "":
-                threat_feed = threat_feed.split(",")
-                for threats in threat_feed:
-                    url_list.append(threats)
-            counter = 1
-        # if we used source feeds or ATIF
-        if counter == 1:
-            log_event("[*] Done pulling from source feeds.",0,None,False)
-            format_ips(url_list)
-            time.sleep(86400)  # sleep for 24 hours
-
-
+    def get_feeds():
+        while 1:
+            url_list = []
+            counter = 0
+            # if we are using source feeds
+            if settings.is_config_enabled('SOURCE_FEEDS') == True:
+                log_event("[*] Pulling from source feeds please wait.......",0,None,True)
+                urls = ["http://rules.emergingthreats.net/blockrules/compromised-ips.txt", "http://lists.blocklist.de/lists/apache.txt", "http://lists.blocklist.de/lists/ssh.txt"]
+                for url in urls:
+                    url_list.append(url)
+                counter = 1
+            # if we are using threat intelligence feeds
+            if settings.is_config_enabled('THREAT_INTELLIGENCE_FEED') == True:
+                log_event("[*] Pulling from additional source feeds please wait.......",0,None,True)
+                threat_feed = settings.get_config('current','THREAT_FEED')
+                if threat_feed != "":
+                    threat_feed = threat_feed.split(",")
+                    for threats in threat_feed:
+                        url_list.append(threats)
+                counter = 1
+            # if we used source feeds or ATIF
+            if counter == 1:
+                log_event("[*] Done pulling from source feeds.",0,None,False)
+                format_ips(url_list)
+                time.sleep(86400)  # sleep for 24 hours
+    threading.Thread(group=None,target=get_feeds,args=(),daemon=True).start()
+#
 def sort_banlist(ip4,ip6) -> None:
     '''Create banlist from source_feeds list.This will wipe 
       the banlist and refresh on every run.after creating a backup
@@ -1649,3 +1405,147 @@ def get_os()-> None:
             #when were done comparing print what was found
             log_event(f"[*] Detected OS: {OsName} Build: {OsBuild}",0,None,True)
         return
+def set_pipe_access():
+    """
+    Creates a pywintypes.SECURITY_ATTRIBUTES object with 
+    a custom "Discretionary Access Control List(DACL)".
+    The custom DACL grants generic r/w/e to the current user
+    and full access for administrators. Used to control access to artillery srvc PIPE.
+    """
+    if is_windows():
+
+        # Look up the SID for the current user
+        user_name = GetUserName()
+        user_sid, domain, type = win32security.LookupAccountName("", user_name)
+        #get everyone and administrators
+        everyone = win32security.LookupAccountName("", "Everyone")[0]
+        admins = win32security.LookupAccountName("", "Administrators")[0]
+            # For the current user, you can get their SID from their access token
+            # For example, using win32api.GetTokenInformation(win32security.OpenProcessToken(...), win32security.TokenUser)
+        # Add Access Control Entries (ACEs).
+        # You add ACEs to the DACL to define specific permissions for each SID. You use AddAccessAllowedAce or AddAccessDeniedAce methods, specifying the ACL_REVISION, desired access rights (e.g., con.FILE_GENERIC_ALL, con.FILE_READ_DATA), and the target SID.
+        # Python
+        # 1. Create a new Discretionary Access Control List (DACL)
+        dacl = win32security.ACL()
+        #dacl.AddAccessAllowedAce(win32security.ACL_REVISION, con.FILE_GENERIC_READ, everyone)
+        # 2. add admins
+        #The ntsecuritycon module provides access constants.
+        dacl.AddAccessAllowedAce(
+            win32security.ACL_REVISION,
+            con.FILE_ALL_ACCESS,
+            admins
+            )
+        # 3. Add an Access Allowed Entry (ACE) for the user.
+        dacl.AddAccessAllowedAce(
+            win32security.ACL_REVISION,
+            con.FILE_GENERIC_WRITE|con.FILE_GENERIC_READ|con.FILE_GENERIC_EXECUTE,  # Grant all access rights
+            user_sid
+        )
+        # Optional: Add an ACE to deny access to the 'Everyone' group, for example.
+        # everyone_sid, _, _ = win32security.LookupAccountName("", "Everyone")
+        # dacl.AddAccessDeniedAce(
+        #     win32security.ACL_REVISION,
+        #     con.FILE_ALL_ACCESS,
+        #     everyone_sid
+        # )
+        # 4. Create a new security descriptor
+        sd = win32security.SECURITY_DESCRIPTOR()
+        # 5. Set the new DACL on the security descriptor
+        # The first argument, 1, indicates that a DACL is present.
+        # The third argument, 0, indicates the DACL was explicitly specified.
+        sd.SetSecurityDescriptorDacl(1, dacl, 0)
+        # 6. Create the SECURITY_ATTRIBUTES object
+        sa = pywintypes.SECURITY_ATTRIBUTES()
+        # 7. Attach the custom security descriptor
+        sa.SECURITY_DESCRIPTOR.SetSecurityDescriptorDacl(1,dacl,0)
+        # 8. Optionally, set the bInheritHandle flag (False by default)
+        sa.bInheritHandle = False
+        return sa
+def send_pipe(eventlevel:str, service:str|None,msg_str:str|None):
+    """
+    Sends msgs to created pipe. Only availible on windows systems(for now)
+    we require a tuple of 3 items (eventlevel,service,string msg)
+    send our msg we cast our tuple to str then back on the other side
+    This will morph into a heartbeat type system with a loop to provide updates
+    or control mesages to each module.
+    """
+    message = str((eventlevel,service,msg_str))
+    pipeName = r"\\.\pipe\Asrvc"
+    data = win32pipe.CallNamedPipe(pipeName, message.encode(), 512, 0)
+    #then recieve response and convert it back
+    # to a tuple and do stuff
+    #()
+    data_to_tup = tuple(data.decode().encode())
+    msg = data.decode()
+    print(f"The service sent back: {msg}")
+
+def create_pipe():
+    """
+    Creates a Pipe on windows systems for interprocess comms.
+    """
+    def run_pipe():
+        if is_windows():
+            pipeName = r"\\.\pipe\Asrvc"
+            openMode = win32pipe.PIPE_ACCESS_DUPLEX | win32file.FILE_FLAG_OVERLAPPED
+            pipeMode = win32pipe.PIPE_TYPE_MESSAGE
+            # When running as a service, we must use special security for the pipe
+            pipeaccess = set_pipe_access()
+        #
+            pipeHandle = win32pipe.CreateNamedPipe(
+                pipeName,
+                openMode,
+                pipeMode,
+                win32pipe.PIPE_UNLIMITED_INSTANCES,
+                0,
+                0,
+                6000,  # default buffers, and 6 second timeout.
+                pipeaccess,
+            )
+            
+            hWaitStop = win32event.CreateEvent(None, 0, 0, None)
+            # We need to use overlapped IO for this, so we dont block when
+            # waiting for a client to connect.  This is the only effective way
+            # to handle either a client connection, or a service stop request.
+            overlapped = pywintypes.OVERLAPPED()
+            # And create an event to be used in the OVERLAPPED object.
+            overlapped.hEvent = win32event.CreateEvent(None, 0, 0, None)
+            
+            # Loop accepting and processing connections
+            while 1:
+                try:
+                    hr = win32pipe.ConnectNamedPipe(pipeHandle, overlapped)
+                except Exception as e:
+                    print("Error connecting pipe!", e)
+                    pipeHandle.Close()
+                    break
+            
+                if hr == winerror.ERROR_PIPE_CONNECTED:
+                    # Client is fast, and already connected - signal event
+                    win32event.SetEvent(overlapped.hEvent)
+                # Wait for either a connection, or a service stop request.
+                timeout = win32event.INFINITE
+                waitHandles = hWaitStop, overlapped.hEvent
+                rc = win32event.WaitForMultipleObjects(waitHandles, 0, timeout)
+                if rc == win32event.WAIT_OBJECT_0:
+                    # Stop event
+                    break
+                else:
+                    # Pipe event - read the data, and write it back.
+                    # (We only handle a max of 255 characters for this sample)
+                    try:
+                        hr, data = win32file.ReadFile(pipeHandle, 256)
+                        #convert our string recieved back to tuple
+                        backtotup = tuple(data.decode().encode())
+                        # data is accesed as eventlevel,src,msg_str
+                        #start logic here
+                        win32file.WriteFile(pipeHandle, ("You sent me:" + data.decode()).encode())
+                        # And disconnect from the client.
+                        win32pipe.DisconnectNamedPipe(pipeHandle)
+                    except win32file.error:
+                        # Client disconnected without sending data
+                        # or before reading the response.
+                        # Thats OK - just get the next connection
+                        continue
+        if is_posix():
+            pass
+    threading.Thread(group=None,target=run_pipe,args=(),daemon=True).start()

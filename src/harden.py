@@ -1,11 +1,14 @@
-
-#
 # all standard python imports such as sys,os and the like are in core.py no need to
- #include again. only add libraries that are not a part of std libs.aka neeed to be pip installed
-#please only add to respective is_platform call when importing 3rd party
-
+# include again import from core.py. only add libraries that are not a part of std libs.aka neeed to be pip installed
+# please only add to respective is_platform call when importing 3rd party or from core.py
+###################################################################################################
 from .core import is_posix,is_windows,log_event,settings
 from .email_handler import *
+__appname__ = "harden"
+__vesion__ = "1.0"
+__author__ = ""
+__requires__ = []
+__description__ = "Performs basic hardening checks depending on platform\nOn windows checks: smb,llmnr,wpad\nOn linux checks: ssh,ftp"
 
 
 harden_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
@@ -223,14 +226,16 @@ if is_posix():
                 subject = "[!] Insecure configuration detected on filesystem: "
                 #this is where email is dealt with
                 #warn_the_good_guys(subject, subject + warning)
-
-
+#
 def hardening_checks():
     '''
     Runs certain hardening checks based on platform
     '''
-    log_event("[*] Checking system hardening.\n[*] Loading service checks.....",0,None,True)
-    if is_windows():
-        windows_harden_check()
-    if is_posix():
-        linux_harden_check()
+    if settings.is_config_enabled("SYSTEM_HARDENING") == True:
+        log_event(f"[*] Starting {__appname__} v{__vesion__} loading service checks.....",0,None,True)
+        if is_windows():
+            threading.Thread(group=None,target=windows_harden_check,args=(),daemon=True).start()
+        if is_posix():
+            threading.Thread(group=None,target=linux_harden_check,args=(),daemon=True).start()
+#
+hardening_checks()

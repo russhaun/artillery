@@ -1,19 +1,25 @@
 #!/usr/bin/python
-
-#############################
+# all standard python imports such as sys,os and the like are in core.py no need to
+# include again import from core.py. only add libraries that are not a part of std libs.aka neeed to be pip installed
+# please only add to respective is_platform call when importing 3rd party or from core.py
+###################################################################################################
 #
 # monitor ftp and ban
 # added by e @ Nov 5th
 #############################
-#left to show whats imported
-#import os
-#import re
-from .core import is_posix,is_windows,settings,log_event
-from .email_handler import *
 
+from .core import is_posix,is_windows,settings,log_event
+#
+__appname__ = "Ftp Monitor"
+__vesion__ = "1.0"
+__author__ = ""
+__requires__ = []
+__description__ = "Monitors vsftpd server files"
+#
 #only define if posix
 if is_posix():
-    from .core import os,re,is_whitelisted_ip,banlist_add_line,is_valid_ipv4
+    from .core import os,re,is_whitelisted_ip,banlist_add_line,is_valid_ipv4,threading
+    from .email_handler import *
     ftp_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
     ftp_brute_attempts = settings.get_config("current","FTP_BRUTE_ATTEMPTS")
     #every 2 mins
@@ -88,8 +94,10 @@ def start_ftp_monitor():
     """
     Starts ftp monitor service. Currently only availible on posix based systems
     """
-    if is_posix() :
-        log_event("[*] Launching FTP Bruteforce monitor.",0,None,True)
-        ftp_monitor(monitor_frequency)
-    if is_windows():
-        pass
+    if settings.is_config_enabled("FTP_BRUTE_MONITOR") == True:
+        if is_posix() :
+            log_event("[*] Launching FTP Bruteforce monitor.",0,None,True)
+            threading.Thread(group=None,target=ftp_monitor,args=(monitor_frequency),daemon=True).start()
+        if is_windows():
+            pass
+start_ftp_monitor()

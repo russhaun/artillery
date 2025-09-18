@@ -3,7 +3,7 @@
 for use in app elsewhere. all values grabbed from config file. if no config file exists one is created with defaults.
 All values are held in memory to avoid doing reads of config file that way it is run once and we just import setting returned and use.
 It generates 2 dictionaries. 1 holds current settings from config file. The other holds global system values such as app path. 
-both dicts are imported to core py to be used elsewhere in app. if you plan on modifiying code to add things maybe? please import dicts from core.py not this file
+both dicts are imported to core py to be used elsewhere in app.
 direcly.
 
 '''
@@ -65,9 +65,6 @@ class ConfigMgr:
         apppath = settings.get_config(global,"APP_PATH")\n
         #retrieve a setting from config dict\n
         alertemail = settings.get(current, "ALERT_USER_EMAIL")\n
-
-
-        
     """
     def __init__(self) -> None:
         write_configuration_log("Starting Config mgr",False)
@@ -167,7 +164,7 @@ class global_init:
             getplatform = self.get_value("PLATFORM")
             self.get_host_OS(getplatform)
         if ('linux' or 'linux2' or 'darwin') in sys.platform:
-            programfolder = os.environ["var"]
+            programfolder = os.environ["/var"]
             globaldefaults = GLOBAL_SETTINGS
             globaldefaults["PLATFORM"] = ["posix", ""]
             globaldefaults["APP_NAME"] = ["Artillery", ""]
@@ -237,7 +234,7 @@ class global_init:
 class config_init:
     """
     This class is designed to configure all needed settings to handle
-    creating/updating a new/existing config file to run cannaUI based on 
+    creating/updating a new/existing config file to run Artillery based on 
     platform with help from the class above. Once complete all 
     values are retrieved from memory during program operation in the form of a dict()
     if no config file exists one will be created. Once a config exists it will use 
@@ -385,7 +382,7 @@ class config_init:
         configdefaults["SSH_DEFAULT_PORT_CHECK"] = ["OFF", "CHECK/WARN IF SSH IS RUNNING ON PORT 22"]
         configdefaults["EXCLUDE"] = ["", "EXCLUDE CERTAIN DIRECTORIES OR FILES. USE FOR EXAMPLE: /etc/passwd,/etc/hosts.allow"]
         configdefaults["ENABLE_HONEYPOT"] = ["OFF", "TURN ON HONEYPOT"]
-        configdefaults["BLOCKING_MODE"] = ["MODERN", "METHOD TO USE WHEN BANNING OFFENDERS.ACCEPTS 'LEGACY' OR 'MODERN' WHICH MAPS TO ROUTINGTABLE\\FIREWALL RESPECTIVELY"]
+        configdefaults["BLOCKING_MODE"] = ["LEGACY", "METHOD TO USE WHEN BANNING OFFENDERS.ACCEPTS 'LEGACY' OR 'MODERN' WHICH MAPS TO ROUTINGTABLE\\FIREWALL RESPECTIVELY"]
         configdefaults["HONEYPOT_BAN"] = ["OFF", "DO YOU WANT TO AUTOMATICALLY BAN ON THE HONEYPOT"]
         configdefaults["HONEYPOT_BAN_CLASSC"] = ["OFF", "WHEN BANNING, DO YOU WANT TO BAN ENTIRE CLASS C AT ONCE INSTEAD OF INDIVIDUAL IP ADDRESS"]
         configdefaults["HONEYPOT_BAN_LOG_PREFIX"] = ["", "PUT A PREFIX ON ALL BANNED IP ADDRESSES. HELPFUL FOR WHEN TRYING TO PARSE OR SHOW DETECTIONS THAT YOU ARE PIPING OFF TO OTHER SYSTEMS. WHEN SET, PREFIX IPTABLES LOG ENTRIES WITH THE PROVIDED TEXT"]
@@ -425,7 +422,7 @@ class config_init:
         configdefaults["THREAT_SERVER"] = ["OFF", "A THREAT SERVER IS A SERVER THAT WILL COPY THE BANLIST.TXT TO A PUBLIC HTTP LOCATION TO BE PULLED BY OTHER ARTILLERY SERVER. THIS IS USED IF YOU DO NOT WANT TO USE THE STANDARD BINARY DEFENSE ONE."]
         configdefaults["THREAT_LOCATION"] = ["/var/www/", "PUBLIC LOCATION TO PULL VIA HTTP ON THE THREAT SERVER. NOTE THAT THREAT SERVER MUST BE SET TO ON"]
         configdefaults["THREAT_FILE"] = ["banlist.txt", "FILE TO COPY TO THREAT_LOCATION, TO ACT AS A THREAT_SERVER. CHANGE TO \"localbanlist.txt\" IF YOU HAVE ENABLED \"LOCAL_BANLIST\" AND WISH TO HOST YOUR LOCAL BANLIST. IF YOU WISH TO COPY BOTH FILES, SEPARATE THE FILES WITH A COMMA - f.i. \"banlist.txt,localbanlist.txt\""]
-        configdefaults["LOCAL_BANLIST"] = ["OFF", "CREATE A SEPARATE LOCAL BANLIST FILE (USEFUL IF YOU'RE ALSO USING A THREAT FEED AND WANT TO HAVE A FILE THAT CONTAINS THE IPs THAT HAVE BEEN BANNED LOCALLY"]
+        configdefaults["LOCAL_BANLIST"] = ["OFF", "CREATE A SEPARATE LOCAL BANLIST FILE USEFUL IF YOURE ALSO USING A THREAT FEED AND WANT TO HAVE A FILE THAT CONTAINS THE IPs THAT HAVE BEEN BANNED LOCALLY"]
         configdefaults["ROOT_CHECK"] = ["OFF", "THIS CHECKS TO SEE WHAT PERMISSIONS ARE RUNNING AS ROOT IN A SSH SERVER DIRECTORY"]
         if 'win32' in sys.platform:
             configdefaults["SYSLOG_TYPE"] = ["FILE", "Specify SYSLOG TYPE to be local, file or remote. LOCAL will pipe to syslog, REMOTE will pipe to remote SYSLOG, and file will send to alerts.log in local artillery directory"]
@@ -436,15 +433,9 @@ class config_init:
         configdefaults["SYSLOG_REMOTE_HOST"] = ["192.168.0.1", "IF YOU SPECIFY SYSLOG TYPE TO REMOTE, SPECIFY A REMOTE SYSLOG SERVER TO SEND ALERTS TO"]
         configdefaults["SYSLOG_REMOTE_PORT"] = ["514", "IF YOU SPECIFY SYSLOG TYPE OF REMOTE, SEPCIFY A REMOTE SYSLOG PORT TO SEND ALERTS TO"]
         configdefaults["CONSOLE_LOGGING"] = ["ON", "TURN ON CONSOLE LOGGING"]
-        if 'win32' in sys.platform:
-            configdefaults["RECYCLE_IPS"] = ["OFF", "RECYCLE banlist.txt AFTER A CERTAIN AMOUNT OF TIME - THIS WILL WIPE ALL IP ADDRESSES AND START FROM SCRATCH AFTER A CERTAIN INTERVAL"]
-        if ('linux' or 'linux2' or 'darwin') in sys.platform:
-            configdefaults["RECYCLE_IPS"] = ["OFF", "RECYCLE banlist.txt AFTER A CERTAIN AMOUNT OF TIME - THIS WILL WIPE ALL IP ADDRESSES AND START FROM SCRATCH AFTER A CERTAIN INTERVAL"]
+        configdefaults["RECYCLE_IPS"] = ["OFF", "RECYCLE banlist.txt AFTER A CERTAIN AMOUNT OF TIME - THIS WILL WIPE ALL IP ADDRESSES AND START FROM SCRATCH AFTER A CERTAIN INTERVAL"]
         configdefaults["ARTILLERY_REFRESH"] = ["86370", "RECYCLE INTERVAL AFTER A CERTAIN AMOUNT OF MINUTES IT WILL OVERWRITE THE LOG WITH A BLANK ONE AND ELIMINATE THE IPS - DEFAULT IS 7 DAYS"]
-        if 'win32' in sys.platform:
-            configdefaults["SOURCE_FEEDS"] = ["OFF", "PULL ADDITIONAL SOURCE FEEDS FOR BANNED IP LISTS FROM MULTIPLE OTHER SOURCES OTHER THAN ARTILLERY"]
-        if ('linux' or 'linux2' or 'darwin') in sys.platform:
-            configdefaults["SOURCE_FEEDS"] = ["OFF", "PULL ADDITIONAL SOURCE FEEDS FOR BANNED IP LISTS FROM MULTIPLE OTHER SOURCES OTHER THAN ARTILLERY"]
+        configdefaults["SOURCE_FEEDS"] = ["OFF", "PULL ADDITIONAL SOURCE FEEDS FOR BANNED IP LISTS FROM MULTIPLE OTHER SOURCES OTHER THAN ARTILLERY"]
         if DEBUG is True:
             write_configuration_log("Done creating defaults",True)
         keyorder = []
@@ -543,7 +534,8 @@ class config_init:
                         comment = configdefaults[configkey][1]
                         self.settings_to_update[configkey] = [item, comment]
         else:
-            #this wil be removed as its not accessed
+            #this wil be removed as its not accessed anymore
+            #because i create the file above always if not found
             #create a whole new file as no config exists
             #generate defaults to write to new file
             for configkey in CURRENT_SETTINGS:

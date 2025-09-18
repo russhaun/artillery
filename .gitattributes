@@ -6,9 +6,7 @@
 
 #this is for the eventual event message dll file. that is currently in progress
 *.dll binary
-*.exe binary
 *.reg binary
-*.msi binary
 
 #for all the icons in project
 *.png binary
