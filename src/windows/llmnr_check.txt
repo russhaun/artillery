@@ -1,0 +1,1 @@
+('DisableSmartNameResolution', 1, 4)('EnableMulticast', 0, 4)('QueryNetBTFQDN', 0, 4)('DisableSmartNameResolution', 1, 4)('EnableMulticast', 0, 4)('QueryNetBTFQDN', 0, 4)

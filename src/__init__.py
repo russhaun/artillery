@@ -7,10 +7,8 @@
 ##THIS FILE WILL FUNCTION AS GLOBALS.PY DID IN PREVIOUS VERSIONS WITHOUT THE NEED FOR A SEPARATE FILE
 ##OR THE USE OF THE GLOBAL KEYWORD ,THESE SETTINGS WILL BE USED THROUGHOUT THE APPLICATION
 ##for now this will be used to load the config file and get the values
-import os
 from .config import *
 settings = ConfigMgr()
-
 #
 __VERSION__ = "3.0.0"
 __AUTHOR__ = "Dave Kennedy (ReL1K) @HackingDave"

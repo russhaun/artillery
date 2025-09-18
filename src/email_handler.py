@@ -6,6 +6,11 @@ is to be sent
 """
 
 from .core import *
+__appname__ = "Email Handler"
+__vesion__ = "1.0"
+__author__ = "RussHaun"
+__requires__ = []
+__description__ = "Handles sending of email. Creates a class that can be imported into other modules.\nIt contains methods for setting subject,msg and triggerfile to use to alert when email is to be sent"
 
 email_log_file = settings.get_config("global","EMAIL_ALERTS_LOG")
 emailhost = settings.get_config("current","SMTP_ADDRESS")
