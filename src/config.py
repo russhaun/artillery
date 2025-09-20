@@ -28,8 +28,11 @@ def grab_config_time() -> str:
 # and then be imported in core.py and be used elsewhere:)
 def write_configuration_log(line:str, console:bool):
         """Creates a log file specifically for config generation in logs dir. """
-        PROGRAM_FILES = os.environ["PROGRAMFILES(X86)"]
-        LOG_FILE = os.path.join(PROGRAM_FILES, "Artillery","logs","configuration.log")
+        if 'win' in sys.platform:
+            PROGRAM_FILES = os.environ["PROGRAMFILES(X86)"]
+        if ('linux' or 'linux2' or 'darwin') in sys.platform:
+            PROGRAM_FILES ="/var"
+        LOG_FILE = os.path.join(PROGRAM_FILES, "artillery","logs","configuration.log")
         if not os.path.isfile(LOG_FILE):
             with open(file=LOG_FILE,mode='x',encoding='utf-8') as log:
                 if console is True:
@@ -164,7 +167,7 @@ class global_init:
             getplatform = self.get_value("PLATFORM")
             self.get_host_OS(getplatform)
         if ('linux' or 'linux2' or 'darwin') in sys.platform:
-            programfolder = os.environ["/var"]
+            programfolder = "/var"
             globaldefaults = GLOBAL_SETTINGS
             globaldefaults["PLATFORM"] = ["posix", ""]
             globaldefaults["APP_NAME"] = ["Artillery", ""]
@@ -176,7 +179,7 @@ class global_init:
             globaldefaults["LOCAL_BANLIST"] = [os.path.join(globalappath, "localbanlist.txt"), ""]
             globaldefaults["LOG_FILE"] = [os.path.join(globalappath, "logs"), ""]
             log_src = self.get_value("LOG_FILE")
-            globaldefaults["ALERT_LOG"] = [os.path.jon(log_src, "alerts.log"), ""]
+            globaldefaults["ALERT_LOG"] = [os.path.join(log_src, "alerts.log"), ""]
             globaldefaults["EMAIL_ALERTS_TRIGGER"] = [os.path.join(log_src, "junk", "email_trigger.log"), ""]
             globaldefaults["EMAIL_ALERTS_LOG"] = [os.path.join(log_src, "email_log.log"), ""]
             globaldefaults["EXCEPTION_LOG"] = [os.path.join(log_src, "exceptions.log"), ""]
@@ -383,7 +386,7 @@ class config_init:
         configdefaults["EXCLUDE"] = ["", "EXCLUDE CERTAIN DIRECTORIES OR FILES. USE FOR EXAMPLE: /etc/passwd,/etc/hosts.allow"]
         configdefaults["ENABLE_HONEYPOT"] = ["OFF", "TURN ON HONEYPOT"]
         configdefaults["BLOCKING_MODE"] = ["LEGACY", "METHOD TO USE WHEN BANNING OFFENDERS.ACCEPTS 'LEGACY' OR 'MODERN' WHICH MAPS TO ROUTINGTABLE\\FIREWALL RESPECTIVELY"]
-        configdefaults["HONEYPOT_BAN"] = ["OFF", "DO YOU WANT TO AUTOMATICALLY BAN ON THE HONEYPOT"]
+        configdefaults["HONEYPOT_BAN"] = ["ON", "DO YOU WANT TO AUTOMATICALLY BAN ON THE HONEYPOT"]
         configdefaults["HONEYPOT_BAN_CLASSC"] = ["OFF", "WHEN BANNING, DO YOU WANT TO BAN ENTIRE CLASS C AT ONCE INSTEAD OF INDIVIDUAL IP ADDRESS"]
         configdefaults["HONEYPOT_BAN_LOG_PREFIX"] = ["", "PUT A PREFIX ON ALL BANNED IP ADDRESSES. HELPFUL FOR WHEN TRYING TO PARSE OR SHOW DETECTIONS THAT YOU ARE PIPING OFF TO OTHER SYSTEMS. WHEN SET, PREFIX IPTABLES LOG ENTRIES WITH THE PROVIDED TEXT"]
         configdefaults["WHITELIST_IP"] = ["127.0.0.1,localhost", "WHITELIST IP ADDRESSES, SPECIFY BY COMMAS ON WHAT IP ADDRESSES YOU WANT TO WHITELIST"]
@@ -398,9 +401,11 @@ class config_init:
         configdefaults["SMTP_ADDRESS"] = ["your.smtp.server.com", "SMTP ADDRESS FOR SENDING EMAIL, "]
         configdefaults["SMTP_PORT"] = ["587", "SMTP PORT FOR SENDING EMAILS DEFAULT IS WITH STARTTLS"]
         configdefaults["EMAIL_TIMER"] = ["ON", "THIS WILL SEND EMAILS OUT DURING A CERTAIN FREQUENCY. IF THIS IS SET TO OFF, ALERTS WILL BE SENT IMMEDIATELY (CAN LEAD TO A LOT OF SPAM)"]
-        configdefaults["EMAIL_FREQUENCY"] = ["600", "HOW OFTEN DO YOU WANT TO SEND EMAIL ALERTS (DEFAULT 10 MINUTES) - IN SECONDS"]
+        configdefaults["EMAIL_FREQUENCY"] = ["600", "HOW OFTEN DO YOU WANT TO SEND EMAIL ALERTS (DEFAULT 10 MIN) - IN SECONDS"]
+        configdefaults["SSH_MONITOR_FREQUENCY"] = ["600", "HOW OFTEN TO CHECK BRUTFORCE ATTEMPTS (DEFAULT 10 MIN)"]
         configdefaults["SSH_BRUTE_MONITOR"] = ["OFF", "DO YOU WANT TO MONITOR SSH BRUTE FORCE ATTEMPTS"]
         configdefaults["SSH_BRUTE_ATTEMPTS"] = ["4", "HOW MANY ATTEMPTS BEFORE YOU BAN"]
+        configdefaults["FTP_MONITOR_FREQUENCY"] = ["600", "HOW OFTEN TO CHECK BRUTFORCE ATTEMPTS (DEFAULT 10 MIN)"]
         configdefaults["FTP_BRUTE_MONITOR"] = ["OFF", "DO YOU WANT TO MONITOR FTP BRUTE FORCE ATTEMPTS"]
         configdefaults["FTP_BRUTE_ATTEMPTS"] = ["4", "HOW MANY ATTEMPTS BEFORE YOU BAN"]
         configdefaults["AUTO_UPDATE"] = ["OFF", "DO YOU WANT TO DO AUTOMATIC UPDATES - ON OR OFF."]
@@ -435,7 +440,7 @@ class config_init:
         configdefaults["CONSOLE_LOGGING"] = ["ON", "TURN ON CONSOLE LOGGING"]
         configdefaults["RECYCLE_IPS"] = ["OFF", "RECYCLE banlist.txt AFTER A CERTAIN AMOUNT OF TIME - THIS WILL WIPE ALL IP ADDRESSES AND START FROM SCRATCH AFTER A CERTAIN INTERVAL"]
         configdefaults["ARTILLERY_REFRESH"] = ["86370", "RECYCLE INTERVAL AFTER A CERTAIN AMOUNT OF MINUTES IT WILL OVERWRITE THE LOG WITH A BLANK ONE AND ELIMINATE THE IPS - DEFAULT IS 7 DAYS"]
-        configdefaults["SOURCE_FEEDS"] = ["OFF", "PULL ADDITIONAL SOURCE FEEDS FOR BANNED IP LISTS FROM MULTIPLE OTHER SOURCES OTHER THAN ARTILLERY"]
+        configdefaults["SOURCE_FEEDS"] = ["ON", "PULL ADDITIONAL SOURCE FEEDS FOR BANNED IP LISTS FROM MULTIPLE OTHER SOURCES OTHER THAN ARTILLERY"]
         if DEBUG is True:
             write_configuration_log("Done creating defaults",True)
         keyorder = []
@@ -464,6 +469,7 @@ class config_init:
         keyorder.append("SMTP_PORT")
         keyorder.append("EMAIL_TIMER")
         keyorder.append("EMAIL_FREQUENCY")
+        keyorder.append("SSH_MONITOR_FREQUENCY")
         keyorder.append("SSH_BRUTE_MONITOR")
         keyorder.append("SSH_BRUTE_ATTEMPTS")
         keyorder.append("FTP_BRUTE_MONITOR")
