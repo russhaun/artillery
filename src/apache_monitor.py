@@ -56,7 +56,6 @@ def start_apache_log_monitor():
     """
     Monitors Access and Error logs on apache servers
     """
-    "/var/log/apache2/access.log"
     if settings.is_config_enabled("APACHE_MONITOR") == True:
         if is_posix():
             log_event(f"[*] Starting {__appname__} v{__vesion__}",0,None,True)

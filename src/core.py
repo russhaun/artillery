@@ -247,16 +247,14 @@ def syslog(message, alerttype, evtid):
     #am  working on a solution
     elif logtype == "LOCAL":
         my_logger = logging.getLogger('Artillery')
-        my_logger.parent = None
         my_logger.setLevel(logging.INFO)
         if is_posix():
             handler = logging.handlers.SysLogHandler(address='/dev/log')
-            handler.level = logging.INFO
-        # if is_windows():
-        #     #this will probably need to be changed to use our custom dll
-        #     #i have not tested this yet
-        #     #i have a working solution in win_func.py that is not used here
-        #     handler = logging.handlers.NTEventLogHandler("Artillery",settings.get_config("global","EVENT_DLL"),"Application")
+        if is_windows():
+            #this will probably need to be changed to use our custom dll
+            #i have not tested this yet
+            #i have a working solution in win_func.py that is not used here
+            handler = logging.handlers.NTEventLogHandler("Artillery",settings.get_config("global","EVENT_DLL"),"Application")
         my_logger.addHandler(handler)
         # for line in message.splitlines():
         if alertindicator != "":
@@ -826,25 +824,11 @@ def create_firewall_rules():
         if banning_enabled is True:
             # iterate through lines from ban file(s) and ban them if not already banned
             for ip in bannedips:
-                #this whole piece can be replaced by is_valid_ip() this detects ipv4\\ipv6
-                #it does away with the need to do this
                 is_valid = is_valid_ip(ip)
                 test_ip =""
                 if is_valid == True:
                     test_ip = ip.strip()
-                # if not ip.startswith("#") and not ip.replace(" ", "") == "":
-                #     ip = ip.strip()
-                #     if ip != "" and not ":" in ip:
-                #         test_ip = ip
-                #     if "/" in test_ip:
-                #         test_ip = test_ip.split("/")[0]
-                #     #down to here
-                #     #
                     if not is_whitelisted_ip(test_ip):
-                        # if not test_ip.startswith("0."):
-                        #     #this can be removed as well the check can be done above
-                        #     # when ipv6 support is enabled:)
-                        #     if is_valid_ipv4(test_ip.strip()):
                         if settings.is_config_enabled("HONEYPOT_BAN_CLASSC") == True:
                             if not test_ip.endswith("/24"):
                                 ip = convert_to_classc(test_ip)
@@ -861,7 +845,6 @@ def create_firewall_rules():
             unique_banlist = (list(set_banlist))
             entries_at_once = 750
             total_nr = len(unique_banlist)
-            #msg = f"[*] Mass loading {str(total_nr)} unique entries from banlist(s)"
             log_event(f"[*] Mass loading {str(total_nr)} unique entries from banlist(s)",0,None,True)
             nr_of_lists = int(len(unique_banlist) / entries_at_once) + 1
             iplists = get_sublists(unique_banlist, nr_of_lists)
@@ -880,17 +863,12 @@ def create_firewall_rules():
                     massloadcmd = "iptables -I ARTILLERY -s %s -j LOG --log-prefix \"%s\" -w 3" % (ips_to_block, iptables_logprefix)
                     subprocess.Popen(massloadcmd, shell=True).wait()
                 total_added += len(iplist)
-                #log_event(f"{str(listindex)}/{str(len(iplists))} - Added {str(total_added)}/{str(total_nr)} IP entries to iptables chain.",0,None,True)
-                #write_log("[*] Added %d/%d IP entries to iptables chain." % (total_added, total_nr))
                 if logindex >= logthreshold:                                                     #(listindex, len(iplists), total_added, total_nr))
                     log_event(f"[*] Update: Added {total_added}/{total_nr} entries to iptables chain",0,None,True)
                     logindex = 0
                 listindex += 1
                 logindex += 1                                                                         #(listindex-1, len(iplists), total_added, total_nr))
-            #log_event("[*] iptables entries created.",0,None,True)
             log_event(f"[*] Done: Added {total_added}/{total_nr} entries to iptables chain",0,None,True)
-            #write_console("[*] Done: Added %d/%d entries to iptables chain, thank you for waiting." % (total_added, total_nr))
-            #log_event("[*] iptables entries created.",0,None,True)
     if is_windows():
         #figure 3 to 5 groups 800 limit per group
         #keep track and rotate out?

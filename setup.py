@@ -47,9 +47,6 @@ if __name__ == "__main__":
                 self.tempdir = os.environ["TEMP"]
                 self.log_location = os.path.join(self.tempdir,self.logfile)
             if self.posix:
-                if os.path.isdir("/var"):
-                    print("found var")
-                    #sys.exit()
                 self.tempdir = os.path.join("/var")
                 self.log_location = os.path.join(self.tempdir,self.logfile)
             if self.win32:
