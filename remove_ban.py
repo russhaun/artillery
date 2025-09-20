@@ -37,7 +37,7 @@ if __name__ == "__main__":
     #########################################################
     class BanMgr:
         """
-            Handles mgmt of banlist and firewall for windows\linux.
+            Handles mgmt of banlist and firewall for windows,linux.
         will only add to file if not found, also only remove if found.
         Same thing with firewall rules.
 
@@ -89,16 +89,16 @@ if __name__ == "__main__":
                 command = ["ip", "route", "add", f"{destination}"]       
                 if gateway:
                     command.extend(['via', gateway])
-                if dev:
+                if dev:#was passed use that
                     command.extend(['dev', dev])
+                else:#defualt to eth0
+                    command.extend(['dev', 'eth0'])
                 try:
                     subprocess.run(command, check=True)
-                    print(f"Route to {destination} successfully added.")
+                    log_event(f"[*] Route to {destination} successfully added.",0,None,True)
                     success = True
                 except subprocess.CalledProcessError as e:
-                    print(f"Error deleting route: {e}")
-                    print(f"Stdout: {e.stdout}")
-                    print(f"Stderr: {e.stderr}")
+                    log_event(f"[*] Error deleting route: {e}",2,None,True)
                 return success
         #
         def delete_route(self,destination:str, gateway=None, dev=None):
@@ -122,15 +122,16 @@ if __name__ == "__main__":
                 command = ['ip', 'route', 'del', destination]
                 if gateway:
                     command.extend(['via', gateway])
-                if dev:
+                if dev:#was passed use that
                     command.extend(['dev', dev])
+                else:#default to eth0
+                    command.extend(['dev', 'eth0'])
                 try:
                     subprocess.run(command, check=True, capture_output=True, text=True)
-                    print(f"Route to {destination} successfully deleted.")
+                    log_event(f"[*] Route to {destination} successfully deleted.",0,None,True)
                 except subprocess.CalledProcessError as e:
-                    print(f"Error deleting route: {e}")
-                    print(f"Stdout: {e.stdout}")
-                    print(f"Stderr: {e.stderr}")
+                    log_event(f"[*] Error deleting route: {e.stderr}",2,None,True)
+    
         #
         def add_firewall_rule(self,ipaddress:str, port=str|None, protocol=str|None):
             """
@@ -381,8 +382,8 @@ if __name__ == "__main__":
                         #remove fron banlist
                         banlist_remove_line(ipaddress)
             if blocking_mode == "LEGACY":
-                #we are running in legacy mode add it to routing table
-                log_event(f"[*] Running in 'LEGACY' ban mode adding {ipaddress} to routing table",0,None,False)
+                #we are running in legacy mode remove it from routing table
+                log_event(f"[*] Running in 'LEGACY' ban mode removing {ipaddress} from routing table",0,None,True)
                 if is_whitelisted_ip(ipaddress) == True:
                     log_event(f"[*] Not banning IP {ipaddress}, whitelisted",0,None,True)
                     self.pause_console()
@@ -424,7 +425,7 @@ if __name__ == "__main__":
                     self.delete_route(ipaddress)
                     #remove from banlist if there
                     if remove_from_banlist == True:
-                        log_event(f"[*] Removing from {ipaddress} to banlist",0,None,True)
+                        #log_event(f"[*] Removing from {ipaddress} to banlist",0,None,True)
                         banlist_remove_line(ipaddress)
                     #remove from local banlist if enabled
                     if settings.is_config_enabled("LOCAL_BANLIST") == True:
@@ -434,6 +435,7 @@ if __name__ == "__main__":
                             filewrite = open(file=settings.get_config('global', "LOCAL_BANLIST"),mode="a",encoding="utf-8")
                             filewrite.write(ip + "\n")
                             filewrite.close()
+                    self.pause_console()
 
         def add_ban(self):
             """
@@ -512,7 +514,7 @@ if __name__ == "__main__":
             #
             if blocking_mode == "LEGACY":
                 #we are running in legacy mode add it to routing table
-                log_event(f"[*] Running in 'LEGACY' ban mode adding {ipaddress} to routing table",0,None,False)
+                log_event(f"[*] Running in 'LEGACY' ban mode adding {ipaddress} to routing table",0,None,True)
                 if is_whitelisted_ip(ipaddress) == True:
                     log_event(f"[*] Not banning IP {ipaddress}, whitelisted",0,None,True)
                     self.pause_console()
@@ -544,7 +546,6 @@ if __name__ == "__main__":
                     self.add_route(ipaddress,None,None)
                     #add it to banlist if not there
                     if add_to_banlist == True:
-                            print(f"Adding {ipaddress} to banlist")
                             banlist_add_line(ipaddress)
                     #add it to local banlist if enabled
                     if settings.is_config_enabled("LOCAL_BANLIST") == True:
@@ -554,6 +555,7 @@ if __name__ == "__main__":
                             filewrite = open(file=settings.get_config('global', "LOCAL_BANLIST"),mode="a",encoding="utf-8")
                             filewrite.write(ip + "\n")
                             filewrite.close()
+                    self.pause_console()
     #setup our parser to accept cmd line options.
     #for now it is basic more options wil be added over time.
     banlist = BanMgr()
