@@ -10,7 +10,7 @@
 
 from .core import is_posix,is_windows,settings,log_event
 #
-__appname__ = "Ftp Monitor"
+__appname__ = "vsftpd monitor"
 __vesion__ = "1.0"
 __author__ = ""
 __requires__ = []
@@ -22,10 +22,10 @@ if is_posix():
     from .email_handler import *
     ftp_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
     ftp_brute_attempts = settings.get_config("current","FTP_BRUTE_ATTEMPTS")
-    #every 2 mins
-    monitor_frequency = 120
+    #every 10 mins
+    monitor_frequency = settings.get_config('current',"FTP_MONITOR_FREQUENCY")
 
-    def ftp_monitor(monitor_time):
+    def ftp_monitor():
         '''
         Monitors vsftpd server files for bruteforce attempts.
         if threshold from config is breached ip is blocked.
@@ -35,7 +35,7 @@ if is_posix():
             if os.path.isfile("/var/log/vsftpd.log"):
                 fileopen1 = open("/var/log/auth.log", "r")
             else:
-                log_event("Have not found configuration file for ftp. Ftp monitor now stops.",0,None,True)
+                log_event("[*] No config file for vsftpd. Ftp monitor stopping.",0,None,True)
                 break
             #
             try:
@@ -84,7 +84,7 @@ if is_posix():
                                         # caught up
                                         time.sleep(1)
                 # sleep for defined time
-                time.sleep(monitor_time)
+                time.sleep(monitor_frequency)
             #logs to exception log and console
             except Exception as e:
                 log_event("[*] An error in ftp monitor occured. Printing it out here: " + str(e),2,None,True)
@@ -96,8 +96,8 @@ def start_ftp_monitor():
     """
     if settings.is_config_enabled("FTP_BRUTE_MONITOR") == True:
         if is_posix() :
-            log_event("[*] Launching FTP Bruteforce monitor.",0,None,True)
-            threading.Thread(group=None,target=ftp_monitor,args=(monitor_frequency),daemon=True).start()
+            log_event(f"[*] Launching {__appname__} v{__vesion__}.",0,None,True)
+            threading.Thread(group=None,target=ftp_monitor,args=(),daemon=True).start()
         if is_windows():
             pass
 start_ftp_monitor()

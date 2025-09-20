@@ -40,6 +40,7 @@ class MainWindow():
         """calls sys.exit() and closes software"""
         if is_windows():
             write_windows_eventlog("Artillery",101,win32evtlog.EVENTLOG_INFORMATION_TYPE,False,None,None)
+        cleanup_iptables_artillery()
         log_event("[!] Ctrl-C Detected! Closing down.",0,None,True)
         log_event("[!] Exiting Artillery... hack the gibson.",0,None,True)
         time.sleep(5)
@@ -57,12 +58,11 @@ class MainWindow():
             Checks are performed in individual files with settings from config file
             Each file starts its own thread if enabled.
         """
-        from src.core import refresh_banlist, threat_server, pull_source_feeds, update
+        from src.core import refresh_banlist, threat_server, pull_source_feeds, update, create_pipe
         
         #start the named srvcpipe for inter service communications windows only
         create_pipe()
-        #this will be moved to later in process
-        create_firewall_rules()
+        
         #changed the order of imports to reflect ordering in config file
         #all config checks are in the individual files/functions now
         #everything is per platform the function that runs each script
@@ -93,10 +93,13 @@ class MainWindow():
         #pull additional source feeds from external parties other than artillery
         pull_source_feeds()
         #
-        log_event(f"[*] Artillery has started.",0,None,True)
-        log_event(f"[*] Console logging enabled.",0,None,True)
-        log_event(f"[*] Use Ctrl+C to exit.",0,None,True)
-        #this will be moved into syslog function in future and called with log_event
+        time.sleep(2)
+        #create iptables rules
+        #put this here because pull source feeds updates the banlist
+        # to make sure i get current banlist ips
+        create_firewall_rules()
+        log_event(f"[*] Artillery has started.\n[*] Console logging enabled.\n[*] Use Ctrl+C to exit.",0,None,True)
+        #this will be moved in future and called with log_event
         if is_windows():
             write_windows_eventlog('Artillery', 100, win32evtlog.EVENTLOG_INFORMATION_TYPE, False, None,msg=None)
 
@@ -169,7 +172,7 @@ if ('linux' or 'linux2' or 'darwin') in sys.platform:
         os.execv(sys.executable, ['python3']+ sys.argv)
     else:
         #rint("The current user is root.")
-        from src.core import threading,os,sys,time,signal,argparse,errno,is_windows,is_posix,settings,log_event,set_console_title, set_console_icon, current_version, freeze_check,get_pid,get_os,create_firewall_rules
+        from src.core import threading,os,sys,time,signal,argparse,errno,is_windows,is_posix,settings,log_event,set_console_title, set_console_icon, current_version, freeze_check,get_pid,get_os,create_firewall_rules,cleanup_iptables_artillery
         def sig_handler(signum, frame):
             """
             handles ctrl-c events to exit software.

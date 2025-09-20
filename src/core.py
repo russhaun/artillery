@@ -247,7 +247,7 @@ def syslog(message, alerttype, evtid):
     #am  working on a solution
     elif logtype == "LOCAL":
         my_logger = logging.getLogger('Artillery')
-        my_logger.setLevel(logging.DEBUG)
+        my_logger.setLevel(logging.INFO)
         if is_posix():
             handler = logging.handlers.SysLogHandler(address='/dev/log')
         if is_windows():
@@ -256,13 +256,12 @@ def syslog(message, alerttype, evtid):
             #i have a working solution in win_func.py that is not used here
             handler = logging.handlers.NTEventLogHandler("Artillery",settings.get_config("global","EVENT_DLL"),"Application")
         my_logger.addHandler(handler)
-        for line in message.splitlines():
-            if alertindicator != "":
-
-                my_logger.critical("Artillery%s: %s\n" % (alertindicator, line))
-            else:
-                my_logger.critical("%s\n" % line)
-
+        # for line in message.splitlines():
+        if alertindicator != "":
+            my_logger.warning("Artillery%s: %s\n" % (alertindicator, message))
+        else:
+            my_logger.critical("%s\n" % message)
+        #print(len(messages))
     # if we don't want to use local syslog and just write to file in
     # logs/alerts.log
     # this will eventually replace write_log func
@@ -518,9 +517,9 @@ def update():
                         abortfound = True
                 if errorfound and abortfound:
                     msg = f"Error updating artillery, git pull was aborted. Error:\n{errormsg}"
-                    log_event(msg,2,None,True)
+                    log_event(msg,0,None,True)
                     msg = "I will make a copy of the config file, run git stash, and restore config file"
-                    log_event(msg,2,None,True)
+                    log_event(msg,0,None,True)
                     saveconfig = "cp '%s' '%s.old'" % (settings.get_config('global',"LOGFILE"), settings.get_config('global',"LOGFILE"))
                     execOScmd(saveconfig)
                     gitstash = "git stash"
@@ -533,9 +532,9 @@ def update():
                     for l in newpull:
                         pullmsg += "%s\n" % l
                     msg = "Tried to fix git pull issue. Git pull now says:"
-                    log_event(msg,2,None,True)
+                    log_event(msg,0,None,True)
                     #
-                    log_event(pullmsg,2,None,True)
+                    log_event(pullmsg,0,None,True)
                 else:
                     msg = f"Output 'git pull':\n{errormsg}"
                     log_event(msg,0,None,False)
@@ -727,8 +726,8 @@ def is_valid_ipv4(ip):
 #only used on posix
 def execOScmd(cmd, logmsg=""):
     '''execute OS command and to wait until it's finished'''
-    if logmsg != "":
-        log_event(f"execOSCmd: {logmsg}",0,None,False)
+    # if logmsg != "":
+    #     log_event(f"execOSCmd: {logmsg}",0,None,False)
     p = subprocess.Popen('%s' % cmd,
                          stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE,
@@ -760,6 +759,7 @@ def create_empty_file(filepath):
     filewrite.write("")
     filewrite.close()
 #not needed anymore as banlist is generated @ runtime if not present
+#this will be worked into another method
 def write_banlist_banner(filepath):
     '''writes out banlist.txt header to file'''
     filewrite = open(filepath, "w")
@@ -783,7 +783,7 @@ def create_firewall_rules():
     '''reads in ip from banlist and other sources and adds them 
     to to a fresh iptables chain or windows firewall group
     for artillery at run time'''
-    #
+    #if settings.is_config_enabled("ENABLE_FIREWALL") == True:
     #assume were not banning
     banning_enabled = False
     if is_posix():
@@ -792,9 +792,9 @@ def create_firewall_rules():
             log_event("[*] Creating iptables entries, hold on.",0,None,True)
             banning_enabled = True
             # remove previous entry if it already exists
-            execOScmd("iptables -D INPUT -j ARTILLERY", "Deleting ARTILLERY IPTables Chain")
+            execOScmd("iptables -D INPUT -j ARTILLERY")
             # create new chain
-            log_event("Flushing iptables chain, creating a new one",0,None,False)
+            log_event("[*] Flushing iptables chain, creating a new one",0,None,True)
             execOScmd("iptables -N ARTILLERY -w 3")
             execOScmd("iptables -F ARTILLERY -w 3")
             execOScmd("iptables -I INPUT -j ARTILLERY -w 3")
@@ -803,8 +803,8 @@ def create_firewall_rules():
         banfile = open(file=settings.get_config('global',"BANLIST"), mode="r",encoding='utf-8').readlines()
         banlength = len(banfile)
         banlocation = settings.get_config('global',"BANLIST")
-        msg = f"Read {str(banlength)} lines in {banlocation}"
-        log_event(msg,0,None,False)
+        msg = f"[*] Read {str(banlength)} lines in {banlocation}"
+        log_event(msg,0,None,True)
         #add all the ips in banlist
         for ip in banfile:
             if not ip in bannedips:
@@ -814,7 +814,7 @@ def create_firewall_rules():
             localbanfile = open(file=settings.get_config('global', "LOCAL_BANLIST"), mode="r",encoding='utf-8').readlines()
             lbanlength = len(localbanfile)
             lbanlocation = settings.get_config('global', "LOCAL_BANLIST")
-            log_event(f"Read {str(lbanlength)} lines in {lbanlocation}",0,None,False)
+            log_event(f"[*] Read {str(lbanlength)} lines in {lbanlocation}",0,None,True)
             #write_log("Read %d lines in '%s'" % (len(localbanfile), settings.get_config('global', "LOCAL_BANLIST")))
             for ip in localbanfile:
                 if not ip in bannedips:
@@ -824,39 +824,28 @@ def create_firewall_rules():
         if banning_enabled is True:
             # iterate through lines from ban file(s) and ban them if not already banned
             for ip in bannedips:
-                #this whole piece can be replaced by is_valid_ip() this detects ipv4\\ipv6
-                #it does away with the need to do this
-                if not ip.startswith("#") and not ip.replace(" ", "") == "":
-                    ip = ip.strip()
-                    if ip != "" and not ":" in ip:
-                        test_ip = ip
-                    if "/" in test_ip:
-                        test_ip = test_ip.split("/")[0]
-                    #down to here
-                    #
+                is_valid = is_valid_ip(ip)
+                test_ip =""
+                if is_valid == True:
+                    test_ip = ip.strip()
                     if not is_whitelisted_ip(test_ip):
-                        if not ip.startswith("0."):
-                            #this can be removed as well the check can be done above
-                            # when ipv6 support is enabled:)
-                            if is_valid_ipv4(ip.strip()):
-                                if settings.get_config("current","HONEYPOT_BAN_CLASSC") == "ON":
-                                    if not ip.endswith("/24"):
-                                        ip = convert_to_classc(ip)
-                                        banlist.append(ip)
-                                else:
-                                    banlist.append(ip)
+                        if settings.is_config_enabled("HONEYPOT_BAN_CLASSC") == True:
+                            if not test_ip.endswith("/24"):
+                                ip = convert_to_classc(test_ip)
+                                banlist.append(ip)
+                        else:
+                            banlist.append(test_ip)
                     else:
-                        log_event(f"Not banning IP {ip}, whitelisted",0,None,False)
+                        log_event(f"[*] Not banning IP {test_ip}, whitelisted",0,None,True)
         #
         if len(banlist) > 0:
             # convert banlist into unique list
-            log_event("Filtering duplicate entries in banlist",0,None,False)
+            log_event("[*] Filtering duplicate entries in banlist",0,None,True)
             set_banlist = set(banlist)
             unique_banlist = (list(set_banlist))
             entries_at_once = 750
             total_nr = len(unique_banlist)
-            msg = f"Mass loading {str(total_nr)} unique entries from banlist(s)"
-            log_event(msg,0,None,True)
+            log_event(f"[*] Mass loading {str(total_nr)} unique entries from banlist(s)",0,None,True)
             nr_of_lists = int(len(unique_banlist) / entries_at_once) + 1
             iplists = get_sublists(unique_banlist, nr_of_lists)
             listindex = 1
@@ -874,15 +863,12 @@ def create_firewall_rules():
                     massloadcmd = "iptables -I ARTILLERY -s %s -j LOG --log-prefix \"%s\" -w 3" % (ips_to_block, iptables_logprefix)
                     subprocess.Popen(massloadcmd, shell=True).wait()
                 total_added += len(iplist)
-                #log_event(f"{str(listindex)}/{str(len(iplists))} - Added {str(total_added)}/{str(total_nr)} IP entries to iptables chain.")
-                write_log("%d/%d - Added %d/%d IP entries to iptables chain." % (listindex, len(iplists), total_added, total_nr))
-                if logindex >= logthreshold:
-                    write_console("    %d/%d : Update: Added %d/%d entries to iptables chain" % (listindex, len(iplists), total_added, total_nr))
+                if logindex >= logthreshold:                                                     #(listindex, len(iplists), total_added, total_nr))
+                    log_event(f"[*] Update: Added {total_added}/{total_nr} entries to iptables chain",0,None,True)
                     logindex = 0
                 listindex += 1
-                logindex += 1   
-            write_console("    %d/%d : Done: Added %d/%d entries to iptables chain, thank you for waiting." % (listindex-1, len(iplists), total_added, total_nr))
-            log_event("[*] iptables entries created.",0,None,True)
+                logindex += 1                                                                         #(listindex-1, len(iplists), total_added, total_nr))
+            log_event(f"[*] Done: Added {total_added}/{total_nr} entries to iptables chain",0,None,True)
     if is_windows():
         #figure 3 to 5 groups 800 limit per group
         #keep track and rotate out?
@@ -1127,13 +1113,20 @@ def cleanup_iptables_artillery() -> None:
     '''
     cleans up iptables entries related to artillery
     '''
-    ban_check = settings.get_config("current","HONEYPOT_BAN")
-    if ban_check == "ON":
-        subprocess.Popen("iptables -D INPUT -j ARTILLERY",
-                         stdout=subprocess.PIP, stderr=subprocess.PIPE, shell=True)
-        subprocess.Popen("iptables -X ARTILLERY",
-                         stdout=subprocess.PIP, stderr=subprocess.PIPE, shell=True)
-        return 0
+    if settings.is_config_enabled("HONEYPOT_BAN") == True:
+        if settings.is_config_enabled("ENABLE_FIREWALL") == True:
+            if is_posix():
+                subprocess.Popen("iptables -D INPUT -j ARTILLERY",
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                subprocess.Popen("iptables -F ARTILLERY",
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                #small delay to make sure chain is flushed
+                time.sleep(2)
+                subprocess.Popen("iptables --delete-chain ARTILLERY",
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                return 0
+            if is_windows():
+                pass
 
 #this will be re-worked
 def refresh_banlist() -> None:
@@ -1351,9 +1344,9 @@ def freeze_check() -> str:
 def get_os()-> None:
     '''This function uses pre-compiled lists to try and determine host os by comparing values to host entries
     if a match is found reports version.'''
-    if is_posix:
+    if is_posix():
         pass
-    if is_windows:
+    if is_windows():
         OsName = "Unknown version"
         OsBuild = "Unknown build"
         #reg key list

@@ -16,10 +16,11 @@ if is_posix():
     from .core import os,re,time,is_valid_ipv4,is_whitelisted_ip,ban,threading
     from .email_handler import *
     ssh_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
-    banlist = settings.get_config("current","BANLIST")
+    banlist = settings.get_config("global","BANLIST")
     ssh_brute_attempts = settings.get_config("current", "SSH_BRUTE_ATTEMPTS")
+    monitor_frequency = settings.get_config("current", "SSH_MONITOR_FREQUENCY")
 
-    def ssh_monitor(monitor_frequency: int) -> None:
+    def ssh_monitor():
         counter = 0
         while 1:
             # for debian base
@@ -92,17 +93,19 @@ if is_posix():
                                         # wait one to make sure everything is caught up
                                         time.sleep(1)
                 # sleep for defined time
-                time.sleep(monitor_frequency)
+                time.sleep(int(monitor_frequency))
 
             except Exception as e:
                 log_event(f"[*] An error in ssh monitor occured. Printing it out here: {str(e)}",2,None,False)
 
 
 def start_ssh_monitor():
-    if is_posix():
-        monitor_frequency = settings.get_config("current", "SSH_MONITOR_FREQUENCY")
-        log_event(f"[*] Launching {__appname__} v{__vesion__}.",0,None,True)
-        threading.Thread(group=None,target=ssh_monitor,args=(int(monitor_frequency)),daemon=True).start()
-    if is_windows():
-        pass
+    if settings.is_config_enabled("SSH_BRUTE_MONITOR") == True:
+        if is_posix():
+            #monitor_frequency = settings.get_config("current", "SSH_MONITOR_FREQUENCY")
+            log_event(f"[*] Launching {__appname__} v{__vesion__}.",0,None,True)
+            threading.Thread(group=None,target=ssh_monitor,args=(),daemon=True).start()
+        if is_windows():
+            pass
+#
 start_ssh_monitor()

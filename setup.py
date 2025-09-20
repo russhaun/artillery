@@ -25,9 +25,9 @@ if __name__ == "__main__":
                 """
             return os.getuid() == 0
         if not is_root():
-            print("The current user is not root")
+            print("The current user is not root. please use sudo")
             #debian 13 base
-            os.execv(sys.executable, ['python3']+ sys.argv)
+            #os.execv(sys.executable, ['python3']+ sys.argv)
             sys.exit()
         else:
             #print("The current user is root.")
@@ -47,15 +47,19 @@ if __name__ == "__main__":
                 self.tempdir = os.environ["TEMP"]
                 self.log_location = os.path.join(self.tempdir,self.logfile)
             if self.posix:
-                self.tempdir = os.environ["/var"]
+                self.tempdir = os.path.join("/var")
                 self.log_location = os.path.join(self.tempdir,self.logfile)
             if self.win32:
                 self.program_home = os.environ["PROGRAMFILES(X86)"]
             if self.posix:
-                self.program_home = os.environ["/var"]
-            self.install_path = os.path.join(self.program_home, "Artillery")
+                self.program_home = os.path.join("/var")
+            self.install_path = os.path.join(self.program_home, "artillery")
             self.main_file = os.path.join(self.program_home,"artillery","artillery.py")
             self.interactive = True
+            # print(self.install_path)
+            # print(self.log_location)
+            # self.pause_console()
+            # sys.exit
             self.installed_state()
             pass
         def get_time(self):
@@ -153,15 +157,17 @@ if __name__ == "__main__":
                 subprocess.check_call([sys.executable,'-m','pip','install','requests'],shell=True)
             #added to avoid import issues if we installed libs restart setup
             if installed == True:
-                self.write_log(line="Libraries were installed restarting to avoid issues",console=True)
-                ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
-                sys.exit()
-            pywin32 = version('pywin32')
-            if pywin32 is not None:
-                #get the version
-                pywin32_ver = version('pywin32')
-                if self.interactive == True:
-                    self.write_log(f"pywin32 {pywin32_ver} is installed",True)
+                if self.win32 == True:
+                    self.write_log(line="Libraries were installed restarting to avoid issues",console=True)
+                    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+                    sys.exit()
+            if self.win32 == True:       
+                pywin32 = version('pywin32')
+                if pywin32 is not None:
+                    #get the version
+                    pywin32_ver = version('pywin32')
+                    if self.interactive == True:
+                        self.write_log(f"pywin32 {pywin32_ver} is installed",True)
             requests = importlib.util.find_spec("requests")
             if requests is not None:
                 requests_ver = version("requests")
@@ -172,6 +178,8 @@ if __name__ == "__main__":
             if os.path.isfile(self.main_file):
                 self.installed = True
             else:
+                print("file not found")
+                print(self.main_file)
                 pass
             
             
@@ -523,7 +531,10 @@ if __name__ == "__main__":
                     self.write_log(line="Running in non interactive uninstall mode with automatic \'yes\' selection",console=True)
                     answer = 'y'
                 if answer == "y":
-                    os.remove("/etc/init.d/artillery")
+                    try:
+                        os.remove("/etc/init.d/artillery")
+                    except FileNotFoundError as e:
+                        print("not found")
                     subprocess.Popen("rm -rf /var/artillery", shell=True)
                     subprocess.Popen("rm -rf /etc/init.d/artillery", shell=True)
                 if self.interactive == True:

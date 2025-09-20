@@ -15,28 +15,52 @@ __description__ = "Monitors apache ERROR and ACCESS logs."
 #
 if is_posix():
     from .email_handler import *
+    #from pathlib import PurePosixPath
     apache_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
-    def tail(some_file):
-        this_file = open(some_file)
+    def tail(path:list):
+        #mabye file is not there?#debian 13 base
+        # if os.path.isfile(str(path)):
+        #     log_event(f"[*] Starting tail on {str(path)}",0,None,True)
+        this_file = open(file=str(path),mode='r',encoding='utf-8')
         # Go to the end of the file
         this_file.seek(0, 2)
-
         while True:
             line = this_file.readline()
             if line:
                 yield line
             yield None
-
+    
+    def access_logs():
+        acceslog = settings.get_config('current','ACCESS_LOG')
+        #mabye file is not there?#debian 13 base
+        if os.path.isfile(str(acceslog)):
+            log_event(f"[*] Starting tail on {str(acceslog)}",0,None,True)
+            lines = tail(acceslog)
+            for line in lines:
+                log_event(f"{line}",0,None,True)
+        else:
+            log_event(f"[*] {acceslog} not found stopping tail",0,None,True)
+        
+    def error_logs():
+        errorlog = settings.get_config('current','ERROR_LOG')
+        #mabye file is not there?#debian 13 base
+        if os.path.isfile(str(errorlog)):
+            log_event(f"[*] Starting tail on {str(errorlog)}",0,None,True)
+            lines = tail(errorlog)
+            for line in lines:
+                log_event(f"{line}",0,None,True)
+        else:
+            log_event(f"[*] {errorlog} not found stopping tail",0,None,True)
 
 def start_apache_log_monitor():
     """
     Monitors Access and Error logs on apache servers
     """
-    if settings.is_config_enabled("APACHE_MONITOR"):
+    if settings.is_config_enabled("APACHE_MONITOR") == True:
         if is_posix():
-            log_event(f"Starting {__appname__} v{__vesion__}",0,None,False)
-            threading.Thread(group=None,target=tail,args=(settings.get_config('current','ACCESS_LOG')),daemon=True).start()
-            threading.Thread(group=None,target=tail,args=(settings.get_config('current','ERROR_LOG')),daemon=True).start()
+            log_event(f"[*] Starting {__appname__} v{__vesion__}",0,None,True)
+            threading.Thread(group=None,target=access_logs,args=(),daemon=True).start()
+            threading.Thread(group=None,target=error_logs,args=(),daemon=True).start()
         if is_windows():
             pass
 start_apache_log_monitor()
