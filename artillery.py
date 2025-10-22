@@ -1,4 +1,3 @@
-#!/usr/bin/python
 ################################################################################
 #
 #  Artillery - An active honeypotting tool and threat intelligence feed
@@ -8,174 +7,188 @@
 # A Binary Defense Project (https://www.binarydefense.com) @Binary_Defense
 #
 ################################################################################
-import time
-import sys
-# needed for backwards compatibility of python2 vs 3 - need to convert to threading eventually
-try: import thread
-except ImportError: import _thread as thread
-import os
-import subprocess
-from src.pyuac import * # added so that it prompts when launching from batch file
-
-import traceback
-
-# import artillery global variables
-import src.globals
-from src.core import *
 #
-init_globals()
-# Tested on win 7/8/10 also on kali rolling. left this here for when someone tries to launch this directly before using setup.
-if not os.path.isfile(src.globals.g_appfile):
-    print("[*] Artillery is not installed, running setup.py..")
-    import setup
+class MainWindow():
+    """
+        Main Class file for handling gathering of all options avalible to artillery
+    and presenting to user. All project scripts get imported and are
+    executed from this class
 
-# from src.config import * # yaml breaks config reading - disabling
+    """
 
-if is_windows():#this is for launching script as admin from batchfile.
-    if not isUserAdmin():# will prompt for user\pass and open in seperate window when you double click batchfile
-        runAsAdmin()
+    def __init__(self) -> None:
+        """init some defaults for class"""
+        self.windowname = "Artillery - Advanced Threat Detection"
+        self.appname = settings.get_config('global','APP_NAME')
+        self.icon_path = settings.get_config('global','ICON_PATH')
+
     #
-    if isUserAdmin():
-        check_config()
-        #moved for issue #39 BinaryDefense to only import on windows. seemed like best place
-        #not the best way but for now something will go into eventlog.
-        #for people with subscriptions in there environment like myself.
-        #will work on better way
-        from src.events import ArtilleryStartEvent
-        # let the local(txt))logfile know artillery has started successfully
-        write_log("Artillery has started successfully.")
-        # write to windows log to let know artillery has started
-        ArtilleryStartEvent()
-        #create temp datebase and continue
-    if not os.path.isfile(src.globals.g_apppath + "\\database\\temp.database"):
-        filewrite = open(src.globals.g_apppath + "\\database\\temp.database", "w")
-        filewrite.write("")
-        filewrite.close()
+    
+    def run(self):
+        """runs final class object with configured settings"""
+        FILE_PATH = freeze_check()
+        log_event(f"[*] {self.appname} is running from {FILE_PATH}",0,None,False)
+        set_console_title(self.windowname)
+        current_version()
+        get_os()
+        get_pid()
+        set_console_icon(self.windowname,os.path.join(self.icon_path,"bd_icon.ico"))
+        
+        self.load_services_as_thread()
 
-    #consolidated nix* variants
-if is_posix():
-    # Check to see if we are root
-    try: # and delete folder
-        if os.path.isdir("/var/artillery_check_root"):
-            os.rmdir('/var/artillery_check_root')
-            #if not thow error and quit
-    except OSError as e:
-        if (e.errno == errno.EACCES or e.errno == errno.EPERM):
-            print ("[*] You must be root to run this script!\r\n")
-        sys.exit(1)
-    else:
-        check_config()
-        if not os.path.isdir(src.globals.g_apppath + "/database/"):
-            os.makedirs(src.globals.g_apppath + "/database/")
-        if not os.path.isfile(src.globals.g_apppath + "/database/temp.database"):
-            filewrite = open(src.globals.g_apppath + "/database/temp.database", "w")
-            filewrite.write("")
-            filewrite.close()
+    def shutdown(self):
+        """calls sys.exit() and closes software"""
+        if is_windows():
+            write_windows_eventlog("Artillery",101,win32evtlog.EVENTLOG_INFORMATION_TYPE,False,None,None)
+        cleanup_iptables_artillery()
+        log_event("[!] Ctrl-C Detected! Closing down.",0,None,True)
+        log_event("[!] Exiting Artillery... hack the gibson.",0,None,True)
+        time.sleep(5)
+        sys.exit()
 
+    def load_services_as_thread(self):
+        """
+        Starts load_services() in a thread.
+        """
+        threading.Thread(group=None,target=self.load_services,args=(),daemon=True).start()
 
-write_console("Artillery has started \nIf on Windows Ctrl+C to exit. \nConsole logging enabled.\n")
-write_console("Artillery is running from '%s'" % src.globals.g_apppath)
-
-# prep everything for artillery first run
-check_banlist_path()
-
-try:
-    # update artillery
-    if is_config_enabled("AUTO_UPDATE"):
-        thread.start_new_thread(update, ())
-
-    # import base monitoring of fs
-    if is_config_enabled("MONITOR") and is_posix():
-        from src.monitor import *
-
-    # port ranges to spawn
-    tcpport = read_config("TCPPORTS")
-    udpport = read_config("UDPPORTS")
-
-    # if we are running posix then lets create a new iptables chain
-    if is_posix():
-        time.sleep(2)
-        write_console("Creating iptables entries, hold on.")
-        create_iptables_subset()
-        write_console("iptables entries created.")
-        if is_config_enabled("ANTI_DOS"):
-            write_console("Activating anti DoS.")
-            # start anti_dos
-            import src.anti_dos
-
-    # spawn honeypot
-    write_console("Launching honeypot.") 
-    import src.honeypot
-
-    # spawn ssh monitor
-    if is_config_enabled("SSH_BRUTE_MONITOR") and is_posix():
-        write_console("Launching SSH Bruteforce monitor.")
-        import src.ssh_monitor
-
-    # spawn ftp monitor
-    if is_config_enabled("FTP_BRUTE_MONITOR") and is_posix():
-        write_console("Launching FTP Bruteforce monitor.")
-        import src.ftp_monitor
-
-    # start monitor engine
-    if is_config_enabled("MONITOR") and is_posix():
-        write_console("Launching monitor engines.")
+    def load_services(self) -> None:
+        """
+            Loads all availible services depending on config. 
+            Checks are performed in individual files with settings from config file
+            Each file starts its own thread if enabled.
+        """
+        from src.core import refresh_banlist, threat_server, pull_source_feeds, update, create_pipe
+        
+        #start the named srvcpipe for inter service communications windows only
+        create_pipe()
+        
+        #changed the order of imports to reflect ordering in config file
+        #all config checks are in the individual files/functions now
+        #everything is per platform the function that runs each script
+        #is invoked in said script @ the bottom no need to check here
+        #start monitor engine
         import src.monitor
-    if is_config_enabled("SYSTEM_HARDENING") and is_posix():
-        # check hardening
-        write_console("Check system hardening.")
+        # check system hardening
         import src.harden
+        #spawn honeypot
+        import src.honeypot
+         #start ssh monitor
+        import src.ssh_monitor
+        #start ftp monitor
+        import src.ftp_monitor
+        #update artillery
+        update()
+        #start anti_dos
+        import src.anti_dos
+        #start apache monitor
+        import src.apache_monitor
+        # check to see if we are a threat server or not
+        threat_server()
+        #recycle banlist if enabled
+        #honestly this function isn't even needed. 
+        #the banlist is completly re-written @ runtime and on update
+        #and that time is every 24 hrs
+        refresh_banlist()
+        #pull additional source feeds from external parties other than artillery
+        pull_source_feeds()
+        #
+        time.sleep(2)
+        #create iptables rules
+        #put this here because pull source feeds updates the banlist
+        # to make sure i get current banlist ips
+        create_firewall_rules()
+        log_event(f"[*] Artillery has started.\n[*] Console logging enabled.\n[*] Use Ctrl+C to exit.",0,None,True)
+        #this will be moved in future and called with log_event
+        if is_windows():
+            write_windows_eventlog('Artillery', 100, win32evtlog.EVENTLOG_INFORMATION_TYPE, False, None,msg=None)
 
-    # start the email handler
-    if is_config_enabled("EMAIL_ALERTS") and is_posix():
-        write_console("Launching email handler.")
-        import src.email_handler
+def master_timer():
+    """This function sleeps for the max that time.sleep() allows in a loop
+    that calculates out to around a little over 1yr.
 
-    # check to see if we are a threat server or not
-    if is_config_enabled("THREAT_SERVER"):
-        write_console("Launching threat server thread.")
-        thread.start_new_thread(threat_server, ())
+    the math is this:
 
-    # recycle IP addresses if enabled
-    if is_config_enabled("RECYCLE_IPS"):
-        write_console("Launching thread to recycle IP addresses.")
-        thread.start_new_thread(refresh_log, ())
+           1yr = 31536000 secs.
+           py3 max = 4294967 secs.
 
-    # pull additional source feeds from external parties other than artillery
-    # - pulls every 2 hours or ATIF threat feeds
-    write_console("Launching thread to get source feeds, if needed.")
-    thread.start_new_thread(pull_source_feeds, ())
-    #removed turns out the issue was windows carriage returns in the init script i had.
-    #note to self never edit linux service files on windows.doh
-    #added to create pid file service would fail to start on kali 2017
-    #if is_posix():
-    #    if not os.path.isfile("/var/run/artillery.pid"):
-    #        pid = str(os.getpid())
-    #        f = open('/var/run/artillery.pid', 'w')
-    #        f.write(pid)
-    #        f.close()
+           4294967 x 8 = 34359736 secs
+
+    so i added 1 to the total count to give me the yr i wanted at 9 it quits
+
+    """
+    count_max = 9
+    current_count = 0
+    #4294967
+    timer = [4294967]
+    while current_count is not count_max:
+        current_count += 1
+        time.sleep(timer[0])
 
 
-    # let the program to continue to run
-    write_console("All set.")
-    write_log("Artillery is up and running")
-    while 1:
+
+if __name__ == "__main__":
+    RUNNING = True
+    import ctypes, sys, os
+if 'win' in sys.platform:
+    def is_admin():
         try:
-            time.sleep(100000)
-        except KeyboardInterrupt:
-            print("\n[!] Exiting Artillery... hack the gibson.\n")
-            sys.exit()
-
-#except sys.excepthook as e:
-#    print("Excepthook exception: " + format(e))
-#    pass
-
-except KeyboardInterrupt:
-    sys.exit()
-
-except Exception as e:
-    emsg = traceback.format_exc()
-    print("General exception: " + format(e) + "\n" + emsg)
-    write_log("Error launching Artillery\n%s" % (emsg),2)
-
-    sys.exit()
+            return ctypes.windll.shell32.IsUserAnAdmin()    
+        except:
+            return False
+    if is_admin() == False:
+        # Re-run the program with admin rights
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)  
+    else:
+    #only import if admin
+        from src.core import threading,os,sys,time,signal,argparse,errno,win32evtlog,is_windows,is_posix,settings,log_event,set_console_title, set_console_icon, current_version, freeze_check,get_pid,get_os,create_firewall_rules,write_windows_eventlog,create_pipe
+        def sig_handler(signum, frame):
+            """
+            handles ctrl-c events to exit software.
+            """
+            global RUNNING
+            RUNNING = False
+            app.shutdown()  
+        #define signal to catch ctrl-c event
+        signal.signal(signal.SIGINT, sig_handler)
+        while RUNNING:
+             #load the class
+            app = MainWindow()
+            app.run()
+            #sleep for a long f-ing time approx 4.2 mil secs about 49.7 days in a loop
+            #for a yr
+            master_timer()
+#cleaner soluton to see if we are root we actually use uid
+if ('linux' or 'linux2' or 'darwin') in sys.platform:
+    import os
+    def is_root():
+        """
+            Checks if the current user is root on a Linux system.
+            """
+        return os.getuid() == 0
+    if not is_root():
+        print("The current user is not root")
+        #debian 13 base
+        os.execv(sys.executable, ['python3']+ sys.argv)
+    else:
+        #rint("The current user is root.")
+        from src.core import threading,os,sys,time,signal,argparse,errno,is_windows,is_posix,settings,log_event,set_console_title, set_console_icon, current_version, freeze_check,get_pid,get_os,create_firewall_rules,cleanup_iptables_artillery
+        def sig_handler(signum, frame):
+            """
+            handles ctrl-c events to exit software.
+            """
+            global RUNNING
+            RUNNING = False
+            app.shutdown()  
+        #define signal to catch ctrl-c event
+        signal.signal(signal.SIGINT, sig_handler)
+        while RUNNING:
+            #load the class
+            app = MainWindow()
+            app.run()
+            #sleep for a long f-ing time approx 4.2 mil secs about 49.7 days in a loop
+            #for a yr
+            master_timer()
+            
+    
+    
