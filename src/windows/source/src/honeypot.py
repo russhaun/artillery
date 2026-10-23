@@ -1,26 +1,23 @@
 #!/usr/bin/python
 #
-# this is the honeypot stuff
-# 
-#
-import sys
-import _thread as thread
-import socket
-from socket import socket as _socket
-import time
-import socketserver as SocketServer
-import os
-import random
-import datetime
-from .core import *
-import traceback
+# this is the honeypot stuff and by no means finished . there are some things that need to be cleaned up and refined.
+# this will morph and change over time as I work in features, including packet capture, whois,
+# geo-ip info of attacker as well as custom responses based on server port and type:))))
+###################################################################################################
+from .core import sys,socket,time,os,random,datetime,traceback,threading,SocketServer,_socket,log_event,is_posix,is_windows,is_whitelisted_ip,is_already_banned,is_valid_ipv4,does_line_exist,settings,debug
 from .email_handler import *
-from threading import Thread
+__appname__ = "Honeypot Server"
+__vesion__ = "1.0"
+__author__ = ""
+__requires__ = []
+__description__ = "Fake server to accept requests from unsolicited sources and ban or report accordingly\nSupports Tcp\\Udp,ipv4\\ipv6(experimental)"
 
 
 honeypot_email_logger = EmailLogger(mailhost=[emailhost,int(emailport)],fromaddr=smtpfrom,toaddrs=sendto,subject=email_subject,credentials=[email_user,email_pass],secure=())
 #this is the delay on how often email handler will check the trigger file
 delay_timer = settings.get_config('current','EMAIL_FREQUENCY')
+#these are for the compiled version with systray app installed
+#not applicable to raw py version(yet) so leaving it here
 SYSTRAY_ENABLED = True
 SYSTRAY_MSG_ACTVE = False
 ALERTS_PENDING = False
@@ -83,56 +80,92 @@ class TCP4Server((SocketServer.ThreadingTCPServer)):
         self.atkport = str(srv_port)
         #this will make sense in a min
         self.reason = ""
+        #these checks will all be moved at some point
+        #to different locations in the flow 
         #only continue if valid ip
-        if is_valid_ipv4(ip):
-            #and not on whitelist
-            if not is_whitelisted_ip(ip):
-                #or already banned
-                if not is_already_banned(ip):
-                    self.reason = "UNKNOWN"
-                else:
-                    #these all will be passed down at some point as reason. potential spam are where they are at now with logging
-                    log_event(f"[!] Connection from a banned ip: {ip} on tcp port: {srv_port}",1,None,True)
-                    self.reason = "BANNED"
-            else:
-                log_event(f"[!] Connection from a whitelisted  ip: {ip} on tcp port: {srv_port}",1,None,True)
-                self.reason = "WHITELISTED"
+        #if is_valid_ipv4(ip) == True:
+        if is_whitelisted_ip(ip) == True:
+            self.reason = "WHITELISTED"
+        elif is_already_banned(ip) == True:
+                    #log_event(f"[!] Connection from a banned ip: {ip} on tcp port: {srv_port}",1,None,True)
+            self.reason = "BANNED"
         else:
-            log_event(f"[!] Connection from an invalid ip: {ip} on tcp port: {srv_port}",1,None,True)
-            self.reason = "INVALID IP"
+                #log_event(f"[!] Connection from a Unknown ip: {ip} on tcp port: {srv_port}",1,None,True)
+            self.reason = "UNKNOWN"
+        #should never hit this
+        # else:
+        #     #log_event(f"[!] Connection from an invalid ip: {ip} on tcp port: {srv_port}",1,None,True)
+        #     self.reason = "INVALID IP"
+        # if is_valid_ipv4(ip):
+        #     #and not on whitelist
+        #     # wl = is_whitelisted_ip(ip)
+        #     # log_event(f"whitelisted status: {wl}",1,None,True)
+        #     if not is_whitelisted_ip(ip):
+        #         #or already banned
+        #         self.reason = "WHITELISTED"
+        #         # bnd = is_already_banned(ip)
+        #         # log_event(f"banned status: {bnd}",1,None,True)
+        #         if not is_already_banned(ip):
+        #             log_event(f"[!] Connection from a banned ip: {ip} on tcp port: {srv_port}",1,None,True)
+        #             self.reason = "BANNED"
+        #         else:
+        #             #these all will be passed down at some point as reason. potential spam are where they are at now with logging
+        #             # log_event(f"[!] Connection from a banned ip: {ip} on tcp port: {srv_port}",1,None,True)
+        #             # self.reason = "BANNED"
+        #             self.reason = "UNKNOWN"
+        #     else:
+        #         log_event(f"[!] Connection from a whitelisted  ip: {ip} on tcp port: {srv_port}",1,None,True)
+        #         self.reason = "WHITELISTED"
+        # #should never hit this
+        # else:
+        #     log_event(f"[!] Connection from an invalid ip: {ip} on tcp port: {srv_port}",1,None,True)
+        #     self.reason = "INVALID IP"
             #
+        
         self.receive_request(self.reason,connection,self.atkaddr,self.atkport)
 
 
     
     def receive_request(self,reason,connection,ip,port):
         """Creates client thread"""
+        #log_event("receiving request",0,None,True)
         while True:
             connection, address = self.socket.accept()
             #ip and responding port
             ip, resport = str(address[0]), str(address[1])
             try:
-                Thread(target=self.client_thread, args=(connection, ip, port,reason)).start()
+                threading.Thread(target=self.client_thread, args=(connection, ip, port,reason)).start()
             except:
-                log_event("[*] Thread did not start.",0,None,False)
+                log_event("[*] Thread did not start.",2,None,True)
                 traceback.print_exc()
 
-
+    #@debug
     def client_thread(self,connection, ip, port,reason):
         """
         do all work here with connected client
         """
+        #log_event(f"entering client thread with reason {reason}",0,None,True)
         #client data returned to view or whatever
         client_input = self.receive_input(connection, 8192)
-        #only add port/ip if not already there and log the event buh bye dups
+        
         #the reason will be used here for logging working on mechanics to make msg
+        #all of these msgs will eventually be done in config file :) 
+        msg = ""
+        #should probably just return on these 2 here and do nothing 
+        # send a response of 1 byte and close the connection
+        if reason == "BANNED":
+            msg = f"[!] Connection from a banned ip: {ip} on tcp port: {port}"
+        if reason == "WHITELISTED":
+            msg = f"[!] Connection from a whitelisted  ip: {ip} on tcp port: {port}"
+        if reason == "UNKNOWN":
+            msg = f"[!] Attack detected from address: {ip} on tcp port: {port}"
+        #else we dont know the ip so we should continue
+        #only add port/ip if not already there and log the event buh bye dups
         if port not in TOUCHED_PORTS:
             TOUCHED_PORTS.append(port)
-            log_event(f"[!] Attack detected from address: {ip} on tcp port: {port}",1,None,True)
+            log_event(msg,1,None,True)
         if ip not in KNOWN_IPS:
             KNOWN_IPS.append(str(ip))
-
-        #print(reason,flush=True)
         #from here we can respond accordingly
         #we have all the data we need to act how we want
         #have to build in the logic for "faking" a response
@@ -151,10 +184,11 @@ class TCP4Server((SocketServer.ThreadingTCPServer)):
            #just pass
             pass
         else:
+            #maybe move this into alert loop
             global systray_msg
             #set our msg for systray
-            msg = self.create_alert()
-            systray_msg = msg[0]
+            #msg = self.create_alert()
+            systray_msg = msg
             SYSTRAY_MSG_ACTVE = True
             #this name no longer applies willl be changed 
             self.bancheck(ip)
@@ -202,6 +236,7 @@ class TCP4Server((SocketServer.ThreadingTCPServer)):
         just make them wait for a min. :))
 
         """
+        #log_event(f"sending response to {raddr}",0,None,True)
         try:
             connection.send(self.gen_response())
         except ConnectionAbortedError as err:
@@ -215,7 +250,8 @@ class TCP4Server((SocketServer.ThreadingTCPServer)):
         length = random.randint(5, 30000)
         fake_string = os.urandom(int(length))
         return fake_string
-    
+    #i can pass the msg through here because
+    # it is alredy made before this is run
     def create_alert(self):
         '''
         generates alert and returns alertmsg,ip,port for logging/processing
@@ -226,6 +262,8 @@ class TCP4Server((SocketServer.ThreadingTCPServer)):
         port = str(self.atkport)
         alert = ""
         message = settings.get_config("current","LOG_MESSAGE_ALERT")
+        #this will be used for msg if we are actually banning
+        #this will be moved in future
         if settings.is_config_enabled("HONEYPOT_BAN") == True:
             message = settings.get_config("current", "LOG_MESSAGE_BAN")
         message = message.replace("%time%", now)
@@ -241,7 +279,7 @@ class TCP4Server((SocketServer.ThreadingTCPServer)):
         elif nrvars == 3:
             alert = message % (now, self.atkaddr, str(port))
         return alert,self.atkaddr,port
-    
+    #should add more checks here reason will be used here as well
     def bancheck(self,ip):
         '''
         appends ip to banlist trigger lists
@@ -273,7 +311,7 @@ class UDP6Server((SocketServer.ThreadingUDPServer)):
     def handle_error(self, request, client_address):
         log_event(f"client {client_address} had an error {str(request)}",1,None,True)
 
-    def close_request(self, request: _socket | tuple[bytes, socket]) -> None:
+    def close_request(self, request: _socket | tuple[bytes, _socket]) -> None:
         return super().close_request(request)
     
     def handle_request(self) -> None:
@@ -411,10 +449,8 @@ def main(tcpports, udpports, bind_interface):
             port_availible = check_open_port(tport, "TCP", bind_interface)
             if port_availible is True:
                 open_tcp.append(tport)
-                #write_log(f"[*] Set up listener for tcp port {tport}")
                 time.sleep(.5)
-                #thread.start_new_thread(sniffer, (host,bind_interface,'TCP',tport))
-                thread.start_new_thread(listentcp_server, (tport, bind_interface,))
+                threading.Thread(group=None,target=listentcp_server,args=(tport, bind_interface),daemon=True).start()
             else:
                 closed_tcp.append(tport)
     #
@@ -428,8 +464,7 @@ def main(tcpports, udpports, bind_interface):
             if port_availible is True:
                 open_udp.append(uport)
                 time.sleep(.5)
-                #thread.start_new_thread(sniffer, (host,bind_interface,'TCP', tport))
-                thread.start_new_thread(listenudp_server, (uport, bind_interface,))
+                threading.Thread(group=None,target=listenudp_server,args=(uport, bind_interface),daemon=True).start()
             else:
                 closed_udp.append(uport)
     #
@@ -472,11 +507,8 @@ def main(tcpports, udpports, bind_interface):
         if tcp_bind_error is False and udp_bind_error is True:
             bind_error = f"Artillery was unable to bind to {str(failed_udp)} UDP port/ports: {str(closed_udp)} This could be due to an active port in use."
         log_event(f"{bind_error}", 2,None,False)
-        #write_log(f"{bind_error}", 2)
-        #warn_the_good_guys(subject, bind_error)
-        #clear exception log
-        # with open(exceptionlog, "r+") as log:
-        #     log.truncate(0)
+        #call email from here
+        #this will only produce 1 msg at runtime to send yay!!!
     if tcp_bind_success or udp_bind_success is True:
         subject = "Set up listener on some ports"
         if tcp_bind_success and udp_bind_success is True:
@@ -496,8 +528,9 @@ def check_for_alerts():
     appropriate sources
     """
     while 1:
-        #sleep for throttle period 
+        # #sleep for throttle period 
         time.sleep(systray_throttle)
+        #log_event("running alert check",0,None,True)
         #create all of our copies of data we want
         ports = set(TOUCHED_PORTS)
         ips = set(KNOWN_IPS)
@@ -506,6 +539,7 @@ def check_for_alerts():
         if ALERTS_PENDING == False:
             pass
         else:
+            #log_event("alerts were found prepping msg",0,None,True)
             #do work we have an alert
             global systray_msg
             msg = systray_msg
@@ -513,7 +547,7 @@ def check_for_alerts():
             honeypot_email_ip = KNOWN_IPS[0]
             honeypot_email_port = TOUCHED_PORTS[0]
             systray_msg = ''
-            #if email alerts is turned on
+            #if email alerts are turned on
             if settings.is_config_enabled('EMAIL_ALERTS') == True:
                 #write email trigger has its own timer
                 trigger_src = settings.get_config('global','LOG_FILE')
@@ -541,9 +575,13 @@ def check_for_alerts():
                         #print(f"ip {item} is already present",flush=True)
                         pass
                     else:
-                        #ban from here this solves the dupe issue
+                        #put is_banned,is_whitelisted checks here? so
+                        #they run once per loop instead of once per class(current setup)
+                        #ban from here this solves the dupe issue(windows)
+                        #will probably use banlist_add_line() function
+                        #as it has a check for if the line is present
+                        #and re-work this section
                         ban(item)
-                        #print(f"ip {item} is not in file adding",flush=True)
                 #
             #
             #when were finished set ALERTS_PENDING to False
@@ -556,7 +594,9 @@ def check_for_alerts():
             BANNED_IPS.clear()
             TOUCHED_PORTS.clear()
             #log_event(f"touched ports value: {TOUCHED_PORTS}",0,None,True)
-        
+        #sleep for throttle period 
+        #log_event(f"finishng loop sleeping for {str(systray_throttle)} secs.",0,None,True)
+        #time.sleep(systray_throttle)
 
 
         
@@ -567,9 +607,12 @@ def start_honeypot():
     starts main honeypot fuction
     """
     #write_console("[*] Starting honeypot.")
-    log_event("[*] Launching honeypot.", 0, None,console=True)
-    Thread(target=main,args=(settings.get_config("current","TCPPORTS"),settings.get_config("current","UDPPORTS"),settings.get_config("current","BIND_INTERFACE"))).start()
-    Thread(target=check_for_alerts,args=()).start()
-    if settings.is_config_enabled('EMAIL_ALERTS') == True:
-        honeypot_email_logger.set_trigger_file('hptrigger.txt')
-        Thread(honeypot_email_logger.check_pending_msgs, ()).start()
+    if settings.is_config_enabled("ENABLE_HONEYPOT") == True:
+        log_event(f"[*] Starting {__appname__} v{__vesion__}.", 0, None,console=True)
+        threading.Thread(target=main,args=(settings.get_config("current","TCPPORTS"),settings.get_config("current","UDPPORTS"),settings.get_config("current","BIND_INTERFACE"))).start()
+        threading.Thread(target=check_for_alerts,args=()).start()
+        if settings.is_config_enabled('EMAIL_ALERTS') == True:
+            honeypot_email_logger.set_trigger_file('hptrigger.txt')
+            threading.Thread(honeypot_email_logger.check_pending_msgs, ()).start()
+
+start_honeypot()

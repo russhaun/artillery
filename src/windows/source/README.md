@@ -1,93 +1,93 @@
-# Project Artillery
+Project Artillery
+=======
+Artillery is a combination of a honeypot, monitoring tool, and alerting system. Eventually this will evolve into a hardening monitoring platform as well to detect insecure configurations from nix and windows systems. 
 
-Artillery is a combination of a honeypot, monitoring tool, and alerting system. Eventually this will evolve into a hardening monitoring platform as well to detect insecure configurations on windows systems. It's relatively simple, run ```Artillery.msi``` and follow the prompts, it will be installed to ```\Program Files (x86)\Artillery```.
+Download zip archive to location of your choice unzip the file. Open a cmd prompt browse to directory that files are located and run  ```python ./setup.py``` and hit yes, or ```python ./setup.py -y```(silent install). 
 
-## Features
+On Linux this will install Artillery in ```/var/artillery``` and edit your ```/etc/init.d/rc.local``` to start artillery on boot up. 
 
-1. It sets up multiple common ports that are attacked. If someone connects to these ports, it blacklists them forever (On Windows use ```Unban.exe <ip>``` to remove them from```\Program Files (x86)\Artillery\banlist.txt```)
+On Windows this will install Artillery in ```\Program Files (x86)\Artillery``` a desktop shorcut is created to launch. Also creates a shortcut in users startup folder to launch when they log in. 
 
-2. It monitors what folders you specify for modifications.:
-    - On windows by default it checks ```%temp%``` and ```%homepath%```
 
-3. It will email you when attacks occur and let you know what the attack was.
+### Features
 
-4. Will alert with Toast Notifications and also event log
+1. It sets up multiple common ports that are attacked. If someone connects to these ports, it blacklists them forever.To add/remove blacklisted ip's use:
+ 
+   - ```python remove_ban.py ban\unban ipaddress``` .
+   
+   Works on routing table(default) or firewall/Iptables(if enabled) from the config
 
-Be sure to edit ```\Program Files (x86)\Artillery\config``` on Windows to turn on mail delivery, and what folders to monitor.
+2. It monitors what folders you specify.
+   - On linux by default it checks ```/var/www``` and ```/etc``` .       
+   - On windows by default it checks ```%temp%``` which points to```\Users\<username>\AppData\Local\Temp```.
+
+3. It monitors the SSH/FTP logs and looks for brute force attempts.(linux only)
+
+4. It monitors apache web servers ERROR and ACCESS logs.
+
+5. Can log to local/remote Syslog, File or Windows event logs.
+
+6. Blocks offenders using mutiple methods on Linux uses routing table and IpTables. On Windows  uses routing table and windows firewall(experimental)
+
+7. Updates banlist from multiple sources can add more sources to config
+
+8. Can act as a threatserver. Meaning you can host your banlist for others to use
+
+9. Monitors for denial-of-service attempts and then throttles offenders(linux only)
+
+10. Runs checks for insecure service settings SSH/FTP(linux),SMB/LLMNR/WPAD(windows)
+
+11. Set customizable alert messages in config file.
+
+12. Supports Ipv4 tcp/udp connections.(Ipv6 servers are present but experimental at this time)
+
+
+Be sure to edit the ```/var/artillery/config```on Linux or ```\Program Files (x86)\Artillery\config``` on Windows to turn on mail delivery, brute force attempt customizations, and what folders to monitor.
+
+
+### Project structure
+
+For those technical folks you can find all of the code in the following structure:
+
+- ```Artillery.py``` - main program file
+- ```restart_server.py``` - handles stop/start/restart of software
+- ```remove_ban.py``` - adds/removes ips from/to banlist also winfirewall/Iptables 
+- ```src/anti_dos.py``` - main monitoring module for Dos attacks
+- ```src/apache_monitor.py``` - main monitoring module for Apache web service
+- ```src/config.py``` - main module for handling configuration settings
+- ```src/email_handler.py``` - main module for handling email
+- ```src/ftp_monitor.py``` - main monitoring module for FTP bruteforcing
+- ```src/core.py``` - main central code reuse for things shared between each module
+- ```src/monitor.py``` - main monitoring module for changes to the filesystem
+- ```src/ssh_monitor.py``` - main monitoring module for SSH brute forcing
+- ```src/honeypot.py``` - main module for honeypot detection
+- ```src/harden.py``` - check for basic hardening to the OS
+- ```database/integrity.data``` - main database for maintaining sha512 hashes of filesystem
+- ```setup.py``` - handles installing software
+
+### Screenshots
+
+### Requirements
+
+- python 3.10.0 (minimum version supported)
+- pwin32(windows) 
+- requests
+
+note:
+    On windows setup.py will attempt to install missing dependencies if they are not there.
+    This assumes a default install of python 3.10.0.
+
+
+### Supported platforms
+
+- Linux
+- Windows
 
 ### Bugs and enhancements
 
-For bug reports or enhancements, please open an issue here https://github.com/Russhaun/artillery/issues
-
-#### Project structure
-
-This is a port of (original repo) to run without python needing to be installed on host system. There are some new features here that are not availible in upstream repo with more planned.For those technical folks you can find all of the code in the following structure:
-
-- ```Artillery.exe``` - main program file
-- ```Restart.exe``` - handles restarting software
-- ```Unban.exe``` - removes ips from banlist
-- ```config```    - holds config settings
-- ```/logs```     - holds log files
-- ```/readme```   - changelog and license files
-- ```/database``` - holds database for file monitoring
-- ```src/windows``` - holds main windows files
-- ```src/windows/source``` - current release sourcecode
-- ```src/icons``` - holds icons for project
-
-##### Supported platforms
-
-- Windows
-- Linux (in progress)
-
-###### Windows installs
-
-Manual method:
-  Download files to location of your choice. extract contents of archive. copy contents to```"Program Files (x86)\Artillery```. once copied run "dll_reg.bat" (as admin) located in windows dir of artillery to register event dll. create shortcuts as needed.
-
-MSI method:(preferred)
-  Installer will put all files in there proper location and also setup all shortcuts for app. ex: desktop/userfolder/startup. dll is automatically registered
-
-note:
-
-a setup.exe is in progress to address manual install including creating shortcuts and related settings
-
-###### Tested on/with
-
-- win10 22h2 19045
-- server 2016/19
-- python 3.10
-
-###### Alpha testing
-
-- python 3.12 (see below)
-- pywin32 v30x (higher then current ver. some breaking changes need to be addressed)
-- windows 11 and ^
-- pop_os
-- parrot_os
-- kali
-
-###### Built with
-
-- pyinstaller 6.15
-- python 3.10.0
-- windows sdk 19041
-- visualstudio 2019 (event dll\msi)
-
-###### Building project
-
-###### requirements:
-
-    - pywin32 v302
-    - pyinstaller 5.7 or higher
-    - python 3.10.0 (python.org install. not microsoft store)
-    - win10 19041 sdk
-
-  Note:
-
-  The version of pywin32 is capped(for now @ 302) use binary installer from here. https://github.com/mhammond/pywin32/releases/tag/b302 . python 2 support has been removed in this release. install appropriate version for your platform ex: 32/64 bit
-
-  navigate to windows folder of extacted repo. you will see a folder called "source" copy this folder to a place of your choosing rename if you wish.open a cmd prompt in this new location  and execute "pyinstaller artillery.spec" (without quotes)  when complete files will be located in "finalbuild" folder, this folder is created during build.this includes any src code as well. this project self replicates src\compiled binaries to finalbuild folder will improve as time goes on. full instructions are in "build_instructions.txt"
+Binary Defense Systems (BDS) (https://www.binarydefense.com) is a sister company of TrustedSec, LLC
 
 
-  
-  msi is not in this package so u will have to manually copy files and register dll (working on setup.exe) for now it's a 2 step process
+For bug reports or enhancements, please open an issue here https://github.com/BinaryDefense/artillery/issues
+
+

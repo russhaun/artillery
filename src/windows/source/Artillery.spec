@@ -9,6 +9,7 @@ import time
 import sys
 import numpy
 
+
 def get_time():
     '''returns local time for use in script'''
     now = time.localtime()
@@ -46,6 +47,7 @@ print("#########################################################################
 print("[*] Setting up variables.....")
 block_cipher = None
 HOME = os.getcwd()
+#these will be changed to use Pathlib @some point
 FINALBUILD = HOME+"\\finalbuild"
 CLIENTFINAL = HOME+'\\finalbuild\\Artillery'
 CLIENTICONS = CLIENTFINAL+'\\src\\icons'
