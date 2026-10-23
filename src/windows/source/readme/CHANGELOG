@@ -1,5 +1,28 @@
 
 # Changes list
+#####################
+version 3.5.0       10/23/26 (windows only) for now need to merge changes on raw repo
+#####################
+
+* updating exe version to 3.5.0(windows)for now
+* all core files from main Repo have been merged to this project.
+* updated restart_server.py and remove_ban.py to use new log_event function
+* updated all win32 global config values to use os.path.join for dealing with paths in config.will be further updated to Pathlib
+* current_version() in core.py uses value retrieved from global dict instead of being hardcoded.
+* changed pull_source_feeds func to only write to log and not print @ initial load
+* added cmdline options to removeban restart files to allow calling from subprocess from within artillery
+* added check_route() function to remove_ban.py to see if a route already exists
+* added some decorators to init.py for convienence in code, debug\cache\timer
+* adding some dataclasses to config.py to faciitate passing settings around as objects that are compiled @ runtime
+* added deprecated decorator to __init__.py
+* added mock setup for new logging class in init.py. old method still applies(for now) will writeout to configuration.log
+
+#####################
+version 3.1.0       10/23/26
+
+* linux changes to src for main repo
+* fixes for issue with setup not working #118
+#####################
 
 #####################
 version 3.0.0       8/20/25

@@ -1,22 +1,19 @@
-'''
-Handles sending of email
+"""
+\\THIS ENTIRE CLASS WILL BE @ SOME POINT MERGED INTO A NEW LOGGING CLASS!!!!!!
+\\THE WAY IT IS USED NOW ITS IMPORTED INTO WHATEVER MODULE AND APPLIED. MEANING MULTIPLE INSTANCES
+\\DURING RUNTIME. NEW LOGGING CLASS IS LOADED ONCE @ RUNTIME MAKING IT GLOBALLY AVAILIBLE
+Handles sending of email. Creates a class that can be imported into other
+modules. it contains methods for setting subject/msg and triggerfile to use to alert when email
+is to be sent
 
-'''
-import subprocess
-import string
-import time
-import socket
-from zipfile import ZipFile
-from logging.handlers import SMTPHandler
-import random
-import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.utils import formatdate
-from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
-from email.mime.application import MIMEApplication
-from .core import settings
+"""
+
+from .core import *
+__appname__ = "Email Handler"
+__vesion__ = "1.0"
+__author__ = "RussHaun"
+__requires__ = []
+__description__ = "Handles sending of email. Creates a class that can be imported into other modules.\nIt contains methods for setting subject,msg and triggerfile to use to alert when email is to be sent"
 
 email_log_file = settings.get_config("global","EMAIL_ALERTS_LOG")
 emailhost = settings.get_config("current","SMTP_ADDRESS")
@@ -100,7 +97,7 @@ class EmailLogger(SMTPHandler):
         alternative_msg.attach(msgText)
         #setup the image for html email
         logo_path = settings.get_config("global","ICON_PATH")
-        logo = f"{logo_path}\\avatar.jpg"
+        logo = f"{logo_path}\\email_avatar.jpg"
         img = open(logo, 'rb')
         msgImage = MIMEImage(img.read())
         img.close()
@@ -202,6 +199,7 @@ class EmailLogger(SMTPHandler):
         #Define our text alert
         text = subject
         #Define our html alert very basic for now
+        #will make it so you can set your own template if you want
         #will add more later
         html = f'''
             <html>
@@ -244,6 +242,8 @@ class EmailLogger(SMTPHandler):
         if not os.path.isfile(triggerfile):
             with open(triggerfile,'x',encoding='utf-8') as logfile:
                 logfile.write(" ")
+                #flush so there is nothing
+                logfile.flush()
             self.triggerfile = triggerfile
         else:
             self.triggerfile = triggerfile
@@ -309,14 +309,16 @@ class EmailLogger(SMTPHandler):
                     time.sleep(3)
                     #wipe the alert and email log file now
                     with open(self.triggerfile,"w",encoding="utf-8") as logwrite:
+                        #logwrite.flush() would be better here
                         for line in logread:
                             line = line.replace(line,"")
                             logwrite(line)
+                    #wipe the alert.log? to only get relevent data so in the case
+                    # another module sends an email its not sending stuff thats 
+                    # not related would probably be better to have individual logs
+                    # for each module and then set mailer to use that, like when we set the triggerfile
                     # with open(alert_file,"w",encoding="utf-8") as alertfle:
                     #     alertfile.flush()
-                    #     for line in alertfle:
-                    #         line = line.replace(line,"")
-                    #         alertfile(line)
                 #clear the list for future alerts
                 msgs.clear()
 

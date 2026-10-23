@@ -1,115 +1,668 @@
-##!/usr/bin/python
-#
-# simple remove banned ip
-#
-#
-import re
-import sys
-import subprocess
-from src.core import is_valid_ipv4, check_banlist_path, settings, is_valid_ip, log_event
-if 'win32' in sys.platform:
-    from src.pyuac import isUserAdmin,runAsAdmin
-##THIS ENTIRE SCRIPT WILL BE REPLACED IN FUTURE VERSIONS
-##WITH A MORE ROBUST CMDLINE UTILITY IN PROGRESS WHICH WILL CONSOLIDATE
-##ALL ARTILLERY CMDLINE TOOLS INTO ONE UTILITY DEALING WITH FIREWALL AND BANLIST MANAGEMENT
-##THIS INCLUDES THE ABILITY TO ADD, DELETE,UPDATE,CHECK AND LIST BANLIST ENTRIES AND FIREWALL RULES
-##check_banlist_path will be replaced with settings.get_config('global', 'BANLIST') in future version
-##is valid_ipv4 will be replaced with is_valid_ip which has ipv4\ipv6 support from core.py
-##does_line _exist will be added from core.py to check if line exists in banlist
-
-def linux_route():
-    """
-    removes given ip addr from iptables and also banlist
-    """
-    try:
-        ipaddress = sys.argv[1]
-        #read banlist path
-        path = check_banlist_path()
-        if is_valid_ipv4(ipaddress):
-            log_event(f"Searching iptables chain looking for {ipaddress}... If there is a massive amount of blocked IP's this could take a few minutes..", 0, None, True)
-            proc = subprocess.Popen("iptables -L ARTILLERY -n -v --line-numbers | grep %s" % (
-                ipaddress), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-            #
-            for line in proc.stdout.readlines():
-                line = str(line)
-                match = re.search(ipaddress, line)
-                if match:
-                    line = line.split(" ")
-                    #this is the rule number
-                    line = line[0]
-                    log_event(f"[*] Deleting entry {line} from iptables chain", 0, None, True)
-                    # delete entry from iptables chain
-                    subprocess.Popen("iptables -D ARTILLERY %s" % (line), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
-                    #remove entry from banlist
-                    fileopen = open(path, "r")
-                    data = fileopen.read()
-                    data = data.replace(ipaddress + "\n", "")
-                    filewrite = open(path, "w")
-                    filewrite.write(data)
-                    filewrite.close()
-        # if not valid then flag
-        else:
-            log_event("[!] Not a valid IP Address. Exiting.", 1, None, True)
-            sys.exit()
-    except IndexError:
-        log_event("Description: Simple removal of IP address from banned sites.", 0, None, True)
-        log_event("[!] Usage: remove_ban.py <ip_address_to_ban>", 0, None, True)
-
-def windows_route():
-
-    """
-    this will attempt to delete given ip from windows routing table using built in commands
-    """
-    #this admin check will be moved in future versions
-    #and placed elsewhere
-    if not isUserAdmin():
-        # runAsAdmin(cmdLine=None, wait=False)
-        # sys.exit(1)
-        log_event("[!] This script requires admin. Please relaunch from an elevated command prompt.",1,None,True)
-        pause = input("[*] Press any key to continue")
-        sys.exit()
-    if isUserAdmin():
-        def delete_route(ip):
-            '''
-            deletes given ip from windows routing table.
-            will probably be removed in future in favor of 
-            firewall options availible in utils/fwutils.py
-            Will be incorporated into docker functions 
-            if config is enabled  :)))'''
-            try:
-                log_event(f"[*] Trying to delete entry {ip} from routing table", 0, None, True)
-                cmd = subprocess.run(['cmd', '/C', 'route', 'delete', ip], shell=True, check=True)
-            except subprocess.CalledProcessError as err:
-                log_event(f"[!] Error deleting route: {err}", 1, None, True)
-        #
-        try:
-            ipaddress = sys.argv[1]
-            #remove entry from banlist
-            if is_valid_ip(ipaddress):
-                path = settings.get_config('global', 'BANLIST')
-                #path = check_banlist_path()
-                fileopen = open(path, "r")
-                data = fileopen.read()
-                data = data.replace(ipaddress + "\n", "")
-                filewrite = open(path, "w")
-                filewrite.write(data)
-                filewrite.close()
-                fileopen.close()
-                #remove entry from routing table
-                delete_route(ipaddress)
-            else:
-                log_event("[!] Not a valid IP Address. Exiting.", 1, None, True)
-                sys.exit()
-        #
-        except IndexError:
-            log_event("Description: Simple removal of IP address from banned sites.", 0, None, True)
-            log_event("[!] Usage: remove_ban.py <ip_address_to_ban>", 0, None, True)
-            
-
-
+##removeban.py responsible for Adding/removing entries to artillery banlist/routingtable/firewall/iptables
+# this will be modified more as features are included in project
+###############################################################
 if __name__ == "__main__":
-    if 'win32' in sys.platform:
-        windows_route()
+    import argparse
+    import sys, os
+    if 'win' in sys.platform:
+        import ctypes
+        def is_admin():
+            try:
+                return ctypes.windll.shell32.IsUserAnAdmin()    
+            except:
+                return False
+        if is_admin() == False:
+            # Re-run the program with admin rights
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)  
+            sys.exit()
+        else:
+            #only import if admin
+            from src.core import *
     #
-    if ('linux' or 'linux2' or 'darwin') in sys.platform:
-        linux_route()
+    elif ('linux' or 'linux2' or 'darwin') in sys.platform:
+        import os
+        def is_root():
+            """
+                Checks if the current user is root on a Linux system.
+                """
+            return os.getuid() == 0
+        if not is_root():
+            print("The current user is not root")
+            #debian 13 base
+            os.execv(sys.executable, ['python3']+ sys.argv)
+            sys.exit()
+        else:
+            #print("The current user is root.")
+            from src.core import *
+    #########################################################
+    class BanMgr:
+        """
+            Handles mgmt of banlist and firewall for windows,linux.
+        will only add to file if not found, also only remove if found.
+        Same thing with firewall rules.
+
+            A new "BLOCKING_MODE" flag has been added to Artillery config.
+        This flag has two values "LEGACY" and "MODERN". These flags will determine
+        how to block an attacker @ runtime.
+
+        "LEGACY" mode uses the routing table method of blocking.
+
+        "MODERN" mode uses firewall/iptables method of blocking
+
+        on windows "MODERN" mode will create a rule called "Artillery_Block_'ipaddress'" entries
+        in firewall for offenders. on linux nothing changed its the same.
+        """
+        def __init__(self):
+            #this is for when launching as standard user on windows it will fail here
+            #because this is not imported as regular user i catch it so you don't see it
+            #its meaningless
+            try:
+                if is_windows():
+                    self.pid = win32process.GetCurrentProcessId()
+            except NameError:
+                sys.exit()
+            if is_posix():
+                self.pid = os.getpid()
+            self.silentmode = False
+            self.skipprompt = False
+            self.write_log(f"[*] Artillery Banmanager starting with pid of: {str(self.pid)}",0,None,False)
+        #sig from core.py
+        #log_event(alert: str, loglvl: int, evtid: int | None, console: bool)->None
+        def write_log(self,msg:str,lvl:int,evtid:int|None,console:bool):
+            if self.silentmode == True:
+                log_event(msg,lvl,evtid,False)
+            else:
+                log_event(msg,lvl,evtid,console)
+        #FIGURE A WAY TO BYPASS THIS WITH A FLAG MAYBE? so it can be called and run
+        def pause_console(self):
+            """
+            Pauses console strategically used mostly because of when launched as a standard user
+            """
+            if self.skipprompt == True:
+                return
+            else:
+                pause = input("[*] Press return to continue")
+        #
+        def check_route(self,destination:str)->bool:
+            """Checks if a route exists in the Windows\linux routing table."""
+            if is_windows():
+                try:
+                    # Run the route print command
+                    result = subprocess.check_output("route print", shell=True).decode('utf-8')
+                    
+                    # Search for the specific destination in the output
+                    if re.search(f"{destination}\s+", result):
+                        print(f"Route to {destination} found.",flush=True)
+                        return True
+                    else:
+                        print(f"Route to {destination} not found.",flush=True)
+                        return False
+                except Exception as e:
+                    print(f"Error checking route: {e.with_traceback()}")
+                    return False
+            if is_posix():
+                pass
+        
+        def add_route(self,destination:str, gateway=None, dev=None):
+            """
+                Adds ip address to routing table
+
+                Args:
+                    destination (str): The destination network or host (e.g., '192.168.1.0/24' or '10.0.0.1').
+                    gateway (str, optional): The gateway IP address. Required for deleting a route via a specific gateway.
+                    dev (str, optional): The network interface associated with the route.
+            """
+            if is_windows():
+                self.write_log(f"[*] Adding {destination} to the routing table",0,None,True)
+                #old setting "route ADD %s MASK 255.255.255.255 10.255.255.255"
+                #                                          change V  to config flag for custom destination
+                routecmd = "route ADD %s MASK 255.255.255.255 172.16.0.50"
+                subprocess.Popen(routecmd % (destination), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            if is_posix():
+                success = False
+                command = ["ip", "route", "add", f"{destination}"]       
+                if gateway:
+                    command.extend(['via', gateway])
+                if dev:#was passed use that
+                    command.extend(['dev', dev])
+                else:#defualt to eth0
+                    command.extend(['dev', 'eth0'])
+                try:
+                    subprocess.run(command, check=True)
+                    self.write_log(f"[*] Route to {destination} successfully added.",0,None,True)
+                    success = True
+                except subprocess.CalledProcessError as e:
+                    self.w(f"[*] Error deleting route: {e}",2,None,True)
+                return success
+        #
+        def delete_route(self,destination:str, gateway=None, dev=None):
+            """
+                Deletes a route from the routing table.
+
+                Args:
+                    destination (str): The destination network or host (e.g., '192.168.1.0/24' or '10.0.0.1').
+                    gateway (str, optional): The gateway IP address. Required for deleting a route via a specific gateway.
+                    dev (str, optional): The network interface associated with the route.
+            """
+            if is_windows():
+                try:
+                    #log_event(f"[*] Trying to delete entry {ip} from routing table", 0, None, True)
+                    cmd = subprocess.run(['cmd', '/C', 'route', 'delete', destination], shell=True, check=True)
+                    return
+                except subprocess.CalledProcessError as err:
+                    self.write_log(f"[!] Error deleting route: {err}", 2, None, True)
+                    return
+            if is_posix():
+                command = ['ip', 'route', 'del', destination]
+                if gateway:
+                    command.extend(['via', gateway])
+                if dev:#was passed use that
+                    command.extend(['dev', dev])
+                else:#default to eth0
+                    command.extend(['dev', 'eth0'])
+                try:
+                    subprocess.run(command, check=True, capture_output=True, text=True)
+                    log_event(f"[*] Route to {destination} successfully deleted.",0,None,True)
+                except subprocess.CalledProcessError as e:
+                    log_event(f"[*] Error deleting route: {e.stderr}",2,None,True)
+    
+        #
+        def add_firewall_rule(self,ipaddress:str, port=str|None, protocol=str|None):
+            """
+                Adds a Windows Firewall/Linux Iptables rule by its ipaddress.
+
+                Args:
+                    ipaddress (str): The name of the firewall rule to add.
+                    port (int, optional): The port number to apply the rule to. Defaults to None.
+                    protocol (str, optional): The protocol to apply the rule to. Can be 'TCP" or 'UDP'. Defaults to None.
+            """
+            args = parser.parse_args()
+            print(args)
+            if is_windows():
+                name = self.prep_firewall_rule_name(ipaddress=ipaddress)
+                #check for the rule first
+                exists = self.check_firewall_rule(ip=ipaddress)
+                if exists == True:
+                    log_event(f"[*] Rule {name} exists. Not adding",0,None,True)
+                    return
+                #
+                try:
+                    net_fw_policy2 = win32comclient.Dispatch("HNetCfg.FwPolicy2")
+                    new_rule = win32comclient.Dispatch("HNetCfg.FwRule")
+                    new_rule.Name = name
+                    new_rule.Description = "Rule created by Artillery"
+                    new_rule.Action = 0  # Allow (0 for Block)
+                    new_rule.Direction = 1  # Inbound (0 for Outbound)
+                    if protocol is not None:
+                        if protocol == "TCP":
+                            new_rule.Protocol = 6  # TCP
+                        elif protocol == "UDP":
+                            new_rule.Protocol = 17  # UDP
+                        else:
+                            raise ValueError("Protocol must be 'TCP' or 'UDP'")
+                    else:
+                        # Default to TCP if no protocol is specified
+                        log_event("[*] No protocol specified, defaulting to TCP.",0,None,True)
+                        new_rule.Protocol = 6  # TCP (17 for UDP)
+                    if port is not None:
+                        #
+                        new_rule.LocalPorts = str(port)
+                    new_rule.RemoteAddresses = ipaddress
+                    new_rule.Enabled = True
+                    log_event(f"[*] Adding firewall rule: {new_rule.Name}, port: {new_rule.LocalPorts}, protocol: {new_rule.Protocol}",0,None,True)
+                    net_fw_policy2.Rules.Add(new_rule)
+                    log_event(f"[*] Firewall rule '{new_rule.Name}' added successfully.",0,None,True)
+                except Exception as e:
+                    #import traceback
+                    log_event(f"[!] Error adding firewall rule '{new_rule.Name}': {e}",1,None,True)
+                    traceback.print_exc()
+            if is_posix():
+                ip = ipaddress.rstrip()
+                #only continue if valid ip
+                is_valid = is_valid_ip(ip)
+                if is_valid == False:
+                    #just return and give a warning
+                    log_event(f"Provided ip: {ip} is not valid please check the address",0,None,True)
+                    return
+                else:
+                    #ip is good we can continue
+                    ban_check = settings.is_config_enabled("HONEYPOT_BAN")
+                    ban_classc = settings.is_config_enabled("HONEYPOT_BAN_CLASSC")
+                    if is_whitelisted_ip(ip):
+                        log_event(f"[*] Not banning IP {ip}, whitelisted",0,None,False)
+                        return
+                    if ban_check == True:
+                        if not is_already_banned(ip):
+                            if ban_classc == True:
+                                ip = convert_to_classc(ip)
+                            subprocess.Popen("iptables -I ARTILLERY 1 -s %s -j DROP" % ip, shell=True).wait()
+                            iptables_logprefix = settings.get_config("current","HONEYPOT_BAN_LOG_PREFIX")
+                            if iptables_logprefix != "":
+                                subprocess.Popen("iptables -I ARTILLERY 1 -s %s -j LOG --log-prefix \"%s\"" % (ip, iptables_logprefix), shell=True).wait()
+        #
+        def delete_firewall_rule(self,ipaddress:str):
+            """
+                Deletes a Windows Firewall/Linux Iptables rule by its ipaddress if not already there.
+
+                Args:
+                    ipaddr (str): The ip in the firewall to delete.
+            """
+            if is_windows():
+                doesexist = self.check_firewall_rule(ip=ipaddress)
+                if doesexist is False:
+                    #just return
+                    return
+                else:
+                    name =f"Artillery_Block_{ipaddress}"
+                    try:
+                        net_fw_policy2 = win32comclient.Dispatch("HNetCfg.FwPolicy2")
+                        net_fw_policy2.Rules.Remove(name)
+                        log_event(f"[*] Firewall rule '{name}' deleted successfully.",0,None,True)
+                    except Exception as e:
+                        import traceback
+                        log_event(f"[*] Error deleting firewall rule '{name}': {e}",2,None,True)
+                        traceback.print_exc()
+            if is_posix():
+                ip = ipaddress.strip()
+                #only continue if valid ip
+                is_valid = is_valid_ip(ip)
+                if is_valid == False:
+                    #just return and give a warning
+                    log_event(f"[*] Provided ip: {ip} is not valid please check the address",0,None,True)
+                    return
+                else: 
+                    exists = self.check_firewall_rule(ip)
+                    if exists == False:
+                        log_event(f"[*] Rule for {ip} not present nothing to do",0,None,True)
+                        return
+                    else:
+                        log_event(f"[*] Deleting entry {ip} from iptables chain", 0, None, True)
+                            # delete entry from iptables chain
+                        subprocess.Popen("iptables -D ARTILLERY %s" % (ip), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+        #      
+        def check_firewall_rule(self,ip:str)->bool:
+            """
+                Checks if a Firewall/Iptables rule with the given name exists.
+                If it exists returns true else returns false.
+                
+                Args:
+                    ip (str): The ip_address in the firewall rule to check for. 
+                    On windows platforms "Artillery_Block_"
+                    will be prefixed on ip
+            """
+            if is_windows():
+                name =f"Artillery_Block_{ip}"
+                try:
+                    # Connect to the Windows Firewall with Advanced Security COM object
+                    net_fwall = win32comclient.Dispatch("HNetCfg.FwPolicy2")
+                    # Iterate through all inbound rules
+                    for rule in net_fwall.Rules:
+                        if rule.Name == name:
+                            #used to get the right values for testing
+                            # print(f"Firewall rule '{name}' found.")
+                            # print(f"  Enabled: {rule.Enabled}")
+                            # print(f"  Direction: {'Inbound' if rule.Direction == 1 else 'Outbound'}")
+                            # print(f"  Action: {'Allow' if rule.Action == 1 else 'Block'}")
+                            # print(f"  Local Ports: {rule.LocalPorts}")
+                            # print(f"  Remote Ports: {rule.RemotePorts}")
+                            # print(f"  Local Addresses: {rule.LocalAddresses}")
+                            #this paticuler setting below will be used in future to create "Groups to block"
+                            # print(f"  Remote Addresses: {rule.RemoteAddresses}")
+                            return True
+                    
+                    log_event(f"[*]Firewall rule '{name}' not found.",0,None,True)
+                    return False
+
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+                    return False
+            if is_posix():
+                """
+                Checks to see if ip address is in iptables chain
+                """
+                exists = False
+                #this could be very noisy watch this event
+                log_event(f"Searching iptables chain looking for {ip}... If there is a massive amount of blocked IP's this could take a few minutes..", 0, None, True)
+                proc = subprocess.Popen("iptables -L ARTILLERY -n -v --line-numbers | grep %s" % (ip), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                for line in proc.stdout.readlines():
+                    line = str(line)
+                    match = re.search(ip, line)
+                    if match:
+                        exists = True
+                        break
+                return exists
+
+        def prep_firewall_rule_name(self,ipaddress:str)->str:
+            """
+                returns a firewall rulename by appending a prefix to the ip_address.
+                passed in at runtime only used on windows platforms (for now)
+
+                Args:
+                    ip (str): The IP address to be used in the rule name.
+            """
+            if is_windows():
+                if ipaddress is not None:
+                    rule_prefix = "Artillery_Block_"
+                    return f"{rule_prefix}{ipaddress}"
+                else:
+                    raise ValueError("IP address cannot be empty.")
+            if is_posix():
+                pass
+
+        def remove_ban(self):
+            """
+            Handles checks and functions to remove artillery bans
+            depending on config
+            """
+            remove_from_firewall = False
+            remove_from_banlist = False
+            remove_ban = parser.parse_args()
+            if remove_ban.sp == True:
+                self.skipprompt = True
+            if remove_ban.silent == True:
+                self.silentmode = True
+            ban_check = settings.is_config_enabled("HONEYPOT_BAN")
+            ban_classc = settings.is_config_enabled("HONEYPOT_BAN_CLASSC")
+            blocking_mode = settings.get_config('current', "BLOCKING_MODE")
+            #Check to see if we are even banning
+            ip = remove_ban.ip_address
+            if ban_check == True:
+                ip = remove_ban.ip_address
+                if does_line_exist(ip) == True:
+                    #only set to remove it if its there
+                    ip = remove_ban.ip_address
+                if ban_classc == True:
+                    #set to class c only if configured
+                    ip = convert_to_classc(remove_ban.ip_address)
+                else:
+                    #print("class c banning not enabled")
+                    pass
+                #check again it might have already been convertedd
+                if does_line_exist(ip) == True:
+                    remove_from_banlist = True
+                else:
+                    #line is not found
+                    pass
+                    
+            else:
+                self.write_log("[*] We are not set to ban please check config.",0,None,True)
+                # if remove_ban.s == True:
+                #     pass
+                # else:
+                self.pause_console()
+                return
+            ipaddress = ip
+            #print("checking firewall")
+            if blocking_mode == "MODERN":
+                self.write_log(f"[*] Running in 'MODERN' ban mode removing {ipaddress} from windows firewall",0,None,True)
+                if settings.is_config_enabled('ENABLE_FIREWALL') == True:
+                        #we are using firewall
+                        remove_from_firewall = True
+                else:
+                    self.write_log("[!] ENABLE_FIREWALL must be set to 'ON' in config",0,None,True)
+                    # if remove_ban.s == True:
+                    #     pass
+                    # else:
+                    self.pause_console()
+                    return    
+            else:
+                #Must be in 'LEGACY' mode
+                pass         
+        
+            if remove_from_firewall == True:
+                if is_windows():
+                        # Placeholder for actual firewall removal logic
+                    self.write_log(f"[*] Attempting to remove {ipaddress} from Windows Firewall",0,None,True)
+                        # Call the function to remove the rule from the firewall
+                    self.delete_firewall_rule(ipaddress)
+                    if remove_from_banlist == True:
+                        banlist_remove_line(ipaddress)
+                    # if remove_ban.s == True:
+                    #     pass
+                    # else:
+                    self.pause_console()
+                    return
+                if is_posix():
+                    log_event(f"[*] Removing {ipaddress} from iptables",0,None,True)
+                    # remove the rule from iptables
+                    self.delete_firewall_rule(ip)
+                    if remove_from_banlist == True:
+                        #remove fron banlist
+                        banlist_remove_line(ipaddress)
+            if blocking_mode == "LEGACY":
+                #we are running in legacy mode remove it from routing table
+                self.write_log(f"[*] Running in 'LEGACY' ban mode removing {ipaddress} from routing table",0,None,True)
+                if is_whitelisted_ip(ipaddress) == True:
+                    self.write_log(f"[*] Not banning IP {ipaddress}, whitelisted",0,None,True)
+                    # if remove_ban.s == True:
+                    #     pass
+                    # else:
+                    self.pause_console()
+                    return
+                if is_windows():
+                    #write_windows_eventlog("Artillery", 200, win32evtlog.EVENTLOG_WARNING_TYPE, False, None,msg=None)
+                    #remove from the routing table
+                    self.write_log(f"[*] Attempting to remove {ipaddress} from Windows routing table",0,None,True)
+                    self.delete_route(destination=ipaddress)
+                    #remove it from banlist if found
+                    if remove_from_banlist == True:
+                        self.write_log(f"[*] Attempting to remove {ipaddress} from banlist.txt",0,None,True)
+                        banlist_remove_line(ipaddress)
+                    else:
+                        pass
+                    #remove it from localbanlist if enabled
+                    if settings.is_config_enabled("LOCAL_BANLIST") == True:
+                        self.write_log(f"[*] Attempting to remove {ipaddress} from localbanlist.txt",0,None,True)
+                        fileflush = open(file=settings.get_config('global', "LOCAL_BANLIST"), mode="w",encoding='utf-8')
+                        fileread = open(file=settings.get_config('global', "LOCAL_BANLIST"), mode="r",encoding='utf-8')
+                        data = fileread.read()
+                        new_file = []
+                        for line in data:
+                            if ipaddress == line:
+                                pass
+                            else:
+                                new_file.append(line)
+                        #clear the file
+                        fileflush.flush()
+                        #write out the changes minus ip
+                        filewrite = open(file=settings.get_config('global', "LOCAL_BANLIST"),mode="a",encoding="utf-8")
+                        for item in new_file:
+                            filewrite.write(item + "\n")
+                            filewrite.close()
+                    #removeban complete
+                    # if remove_ban.s == True:
+                    #     pass
+                    # else:
+                    self.pause_console()
+                if is_posix():
+                    #remove from routing table
+                    self.delete_route(ipaddress)
+                    #remove from banlist if there
+                    if remove_from_banlist == True:
+                        #log_event(f"[*] Removing from {ipaddress} to banlist",0,None,True)
+                        banlist_remove_line(ipaddress)
+                    #remove from local banlist if enabled
+                    if settings.is_config_enabled("LOCAL_BANLIST") == True:
+                        fileopen = open(file=settings.get_config('global', "LOCAL_BANLIST"), mode="r",encoding='utf-8')
+                        data = fileopen.read()
+                        if ip not in data:
+                            filewrite = open(file=settings.get_config('global', "LOCAL_BANLIST"),mode="a",encoding="utf-8")
+                            filewrite.write(ip + "\n")
+                            filewrite.close()
+                    if remove_ban.s == True:
+                        pass
+                    else:
+                        self.pause_console()
+
+        def add_ban(self):
+            """
+            Handles checks and functions to add artillery bans
+            depending on config
+            """
+            add_to_firewall = False
+            add_to_banlist = False
+            add_to_routing_table = False
+            add_ban = parser.parse_args()
+            #verify proper cmds are sent and seen
+            #print(add_ban)
+            if add_ban.silent == True:
+                self.silentmode = True
+            if add_ban.sp == True:
+                self.skipprompt = True
+            # print(self.silentmode)
+            # print(self.skipprompt)
+            #sys.exit(1)
+            ban_check = settings.is_config_enabled("HONEYPOT_BAN")
+            ban_classc = settings.is_config_enabled("HONEYPOT_BAN_CLASSC")
+            blocking_mode = settings.get_config('current', "BLOCKING_MODE")
+            #if we are banning
+            ip = add_ban.ip_address
+            if ban_check == True:
+                #check to see if ip is whitelisted
+                if is_whitelisted_ip(ip) == True:
+                    self.write_log(f"[*] Not banning IP {ip}, whitelisted",0,None,True)
+                    # if add_ban.s == True:
+                    #     pass
+                    # else:
+                    self.pause_console()
+                    return
+                #check to see if line is not present
+                if does_line_exist(ip) == False:
+                    ip = add_ban.ip_address
+                #check to see if it was added as class c already
+                if ban_classc == True:
+                    ip = convert_to_classc(add_ban.ip_address)
+                #check again it might have already been converted
+                if does_line_exist(ip) == False:
+                    #add it its not present
+                    add_to_banlist = True
+                else:
+                    #else line is present
+                    pass
+            ipaddress = ip
+            #figure out the mode we are banning in
+            if blocking_mode == "MODERN":
+                add_to_firewall = True
+                self.write_log(f"[*] Running in 'MODERN' ban mode adding {ipaddress} to windows firewall",0,None,True)
+                if settings.is_config_enabled('ENABLE_FIREWALL') == True:
+                        #we are using firewall
+                    pass
+                else:
+                    self.write_log("ENABLE_FIREWALL must be set to 'ON' in config",0,None,True)
+                    # if add_ban.s == True:
+                    #     pass
+                    # else:
+                    self.pause_console()
+                    return    
+            else:
+                #Must be in 'LEGACY' mode
+                pass         
+
+            if add_to_firewall == True:
+                if is_windows():
+                    port = None
+                    protocol = None
+                    if add_ban.port:
+                        port = add_ban.port
+                    if add_ban.protocol:
+                        protocol = add_ban.protocol
+                    self.write_log(f"[*] Attempting to add {ipaddress} to Windows Firewall",0,None,True)
+                    self.add_firewall_rule(ipaddress=ipaddress,port=port,protocol=protocol)
+                    if add_to_banlist == True:
+                        self.write_log(f"[*] Attempting to add {ipaddress} to banlist.txt",0,None,True)
+                        banlist_add_line(ipaddress)
+                    else:
+                        self.write_log(f"[*] {ipaddress} already present in banlist.txt",0,None,True)
+                    # if add_ban.s == True:
+                    #     pass
+                    # else:
+                    self.pause_console()
+            
+                if is_posix():
+                    # Placeholder for actual iptables addition logic
+                    log_event(f"[*] Attempting to add {ipaddress} to iptables",0,None,True)
+                    # Call the function to add the rule to iptables
+                    self.add_firewall_rule(ipaddress=ipaddress,port=port,protocol=protocol)
+                    if add_to_banlist == True:
+                        log_event(f"[*] Attempting to add {ipaddress} to banlist.txt",0,None,True)
+                        banlist_add_line(ipaddress)
+            #
+            if blocking_mode == "LEGACY":
+                #we are running in legacy mode add it to routing table
+                self.write_log(f"[*] Running in 'LEGACY' ban mode adding {ipaddress} to routing table",0,None,True)
+                if is_whitelisted_ip(ipaddress) == True:
+                    self.write_log(f"[*] Not banning IP {ipaddress}, whitelisted",0,None,True)
+                    # if add_ban.s == True:
+                    #     pass
+                    # else:
+                    self.pause_console()
+                    return
+                if is_windows():
+                    #write_windows_eventlog("Artillery", 200, win32evtlog.EVENTLOG_WARNING_TYPE, False, None,msg=None)
+                    #add em to the routing table
+                    self.write_log(f"[*] Attempting to add {ipaddress} to Windows routing table",0,None,True)
+                    self.add_route(ipaddress,None,None)
+                    #add it to banlist if not found
+                    if add_to_banlist == True:
+                        self.write_log(f"[*] Attempting to add {ipaddress} to banlist.txt",0,None,True)
+                        banlist_add_line(ipaddress)
+                    else:
+                        self.write_log(f"[*] {ipaddress} already present in banlist.txt",0,None,True)
+                    #add it to local banlist if enabled
+                    if settings.is_config_enabled("LOCAL_BANLIST") == True:
+                        self.write_log(f"[*] Attempting to add {ipaddress} to localbanlist.txt",0,None,True)
+                        fileopen = open(file=settings.get_config('global', "LOCAL_BANLIST"), mode="r",encoding='utf-8')
+                        data = fileopen.read()
+                        if ip not in data:
+                            filewrite = open(file=settings.get_config('global', "LOCAL_BANLIST"),mode="a",encoding="utf-8")
+                            filewrite.write(ip + "\n")
+                            filewrite.close()
+                    # add ban complete
+                    #if add_ban.s == True:
+                    self.write_log(f"[*] add ban silent mode enabled.auto accepting",0,None,False)
+                    #else:
+                    self.pause_console()
+                if is_posix():
+                    #add to linux routing table
+                    self.add_route(ipaddress,None,None)
+                    #add it to banlist if not there
+                    if add_to_banlist == True:
+                            banlist_add_line(ipaddress)
+                    #add it to local banlist if enabled
+                    if settings.is_config_enabled("LOCAL_BANLIST") == True:
+                        fileopen = open(file=settings.get_config('global', "LOCAL_BANLIST"), mode="r",encoding='utf-8')
+                        data = fileopen.read()
+                        if ip not in data:
+                            filewrite = open(file=settings.get_config('global', "LOCAL_BANLIST"),mode="a",encoding="utf-8")
+                            filewrite.write(ip + "\n")
+                            filewrite.close()
+                    if add_ban.s == True:
+                        pass
+                    else:
+                        self.pause_console()
+    #setup our parser to accept cmd line options.
+    #for now it is basic more options wil be added over time.
+    banlist = BanMgr()
+    parser = argparse.ArgumentParser(prog='remove_ban',usage='%(prog)s [options] <ipadress>',description='Banlist manager for Artillery',add_help=True)
+    subparser = parser.add_subparsers()
+    unban_parser = subparser.add_parser(name='unban', help='removes an ip from banlist and routing table')
+    unban_parser.add_argument("ip_address",action='store', help='IP address to unban')
+    unban_parser.add_argument("-sp",action='store_true',help="auto accepts 'Press return to continue' prompt")
+    unban_parser.add_argument("-silent",action='store_true',help="run in silent mode(no console output) all output redirected to logfile. 'runtimelog'" )
+    unban_parser.set_defaults(function=banlist.remove_ban)
+    ban_parser = subparser.add_parser(name='ban', help='adds an ip to the banlist and routing table/iptables')
+    ban_parser.add_argument("ip_address",action='store', help='IP address to ban')
+    ban_parser.add_argument("-sp",action='store_true',help="auto accepts 'Press return to continue' prompt")
+    ban_parser.add_argument("-silent",action='store_true',help="run in silent mode(no console output) all output redirected to logfile. 'runtimelog'" )
+    ban_parser.add_argument("-port",action='store', help='Specific port to block defaults to all')
+    ban_parser.add_argument("-protocol",action='store', help='Protocol to use Defaults to Tcp')
+    ban_parser.set_defaults(function=banlist.add_ban)
+    args = parser.parse_args()    
+    try:
+        if hasattr(args, 'function'):
+            args.function()
+    except Exception as e:
+        #if error print help
+        log_event("[!] No valid command provided. Use 'ban', 'unban'.", 1, None, True)
+        parser.print_help()
+        sys.exit(1)
