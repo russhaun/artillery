@@ -131,7 +131,7 @@ if __name__ == "__main__":
                 log_event("[*] Attempting to find Artillery service", 0, None, True)
                 if os.path.isfile("/var/artillery/artillery.py"):
                     log_event("[*] Starting Artillery server process...", 0, None, True)
-                    subprocess.Popen(["python3", "/var/artillery/artillery.py", "&"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+                    subprocess.Popen(["sudo","python3", "/var/artillery/artillery.py","&"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
                 else:
                     log_event("[!] Artillery server script not found at /var/artillery/artillery.py", 1, None, True)
         #       

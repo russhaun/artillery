@@ -1,7 +1,14 @@
 
 # Changes list
 
+
 #####################
+version 3.1.0       10/23/26
+#####################
+
+* linux changes to src for raw repo
+* fixes for issue with setup not working #118
+
 version 3.0.0       8/20/25
 #####################
 
