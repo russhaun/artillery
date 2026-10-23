@@ -1313,7 +1313,7 @@ def get_pid() -> None:
 ####################################################################################
 def current_version() -> None:
     '''returns current release of artillery'''
-    ver = ['3.0.0']
+    ver = ['3.1.0']
     info = f"[*] Artillery Ver: {str(ver[0])}"
     log_event(info,0,None,True)
 #
