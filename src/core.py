@@ -442,14 +442,13 @@ def ban(ip):
                         #this can be removed as well only accept connection if is not already banned
                         if not is_already_banned(ip):
                             if ban_classc == "on":
-
                                 ip = convert_to_classc(ip)
                                 subprocess.Popen(
                                     "iptables -I ARTILLERY 1 -s %s -j DROP" % ip, shell=True).wait()
                             iptables_logprefix = settings.get_config("current","HONEYPOT_BAN_LOG_PREFIX")
                             if iptables_logprefix != "":
                                 subprocess.Popen("iptables -I ARTILLERY 1 -s %s -j LOG --log-prefix \"%s\"" % (ip, iptables_logprefix), shell=True).wait()
-
+                            
                     # if running windows then route attacker to some bs address.
                     if is_windows():
                         #from ..utils.event_log import write_windows_eventlog, warning
@@ -1170,7 +1169,7 @@ def format_ips(urls):
     #add custom headers
     headers ={'user-agent': 'Artillery Banlist Updater V1'}
     for url in urls:
-        log_event(f"[*] Grabbing feed from {url}",0,None,True)
+        log_event(f"[*] Grabbing feed from {url}",0,None,False)
         if url.startswith("http"):
             req = Request(method='GET',url=url, headers=headers)
             prepped = req.prepare()
